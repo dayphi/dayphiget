@@ -1,5 +1,6 @@
 import type { OnboardingData } from './OnboardingWizard';
 import { Plus, Trash2, Wallet } from 'lucide-react';
+import { RupiahInput } from '@/components/ui/RupiahInput';
 
 interface Props {
   data: OnboardingData;
@@ -74,10 +75,9 @@ export function StepIncome({ data, onChange }: Props) {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-surface-500">
                     Rp
                   </span>
-                  <input
-                    type="number"
+                  <RupiahInput
                     value={source.amount}
-                    onChange={(e) => updateSource(i, 'amount', e.target.value)}
+                    onChange={(val) => updateSource(i, 'amount', val)}
                     placeholder="Jumlah"
                     className="w-full rounded-xl border border-surface-700 bg-surface-800/50 py-2.5 pl-10 pr-3 text-sm font-medium tabular-nums text-surface-100 placeholder:text-surface-500 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
                   />

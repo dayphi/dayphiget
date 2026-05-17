@@ -56,6 +56,22 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+/* ===== LIGHT MODE OVERRIDES ===== */
+
+html.light {
+  --color-surface-950: #f8fafc;
+  --color-surface-900: #f1f5f9;
+  --color-surface-800: #e2e8f0;
+  --color-surface-700: #cbd5e1;
+  --color-surface-600: #94a3b8;
+  --color-surface-500: #64748b;
+  --color-surface-400: #475569;
+  --color-surface-300: #334155;
+  --color-surface-200: #1e293b;
+  --color-surface-100: #0f172a;
+  --color-surface-50: #020617;
+}
+
 /* ===== BASE STYLES ===== */
 
 @layer base {
@@ -222,6 +238,37 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-md);
+}
+
+/* ===== LIGHT MODE UTILITY OVERRIDES ===== */
+
+html.light .glass {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(99, 102, 241, 0.12);
+}
+
+html.light .glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(99, 102, 241, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+html.light .gradient-mesh {
+  background:
+    radial-gradient(at 20% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+    radial-gradient(at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
+}
+
+html.light .text-gradient {
+  background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-500));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+html.light .bottom-sheet-overlay {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* Number input — hide spinners */

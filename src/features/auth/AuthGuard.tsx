@@ -21,13 +21,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Redirect to onboarding if not completed (and not already on onboarding page)
-  if (
-    profile &&
-    !profile.onboarding_completed &&
-    location.pathname !== '/onboarding'
-  ) {
-    return <Navigate to="/onboarding" replace />;
+  // Redirect to onboarding if profile missing or not completed
+  if (location.pathname !== '/onboarding') {
+    if (!profile || !profile.onboarding_completed) {
+      return <Navigate to="/onboarding" replace />;
+    }
   }
 
   return <>{children}</>;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
-import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS } from '@/lib/constants';
+import { DEFAULT_PAYMENT_METHODS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { StepProfile } from './StepProfile';
 import { StepIncome } from './StepIncome';
@@ -9,6 +9,8 @@ import { StepCategories } from './StepCategories';
 import { StepHutang } from './StepHutang';
 import { StepAlerts } from './StepAlerts';
 import { Check, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import type { CategoryType } from '@/types';
 
 const STEPS = [
   { id: 'profile', label: 'Profil', icon: '👤' },
@@ -22,11 +24,18 @@ export type OnboardingData = {
   displayName: string;
   currency: string;
   incomeSources: { name: string; amount: string; payDay: string }[];
-  selectedCategories: string[];
+  selectedCategories: OnboardingCategory[];
   categoryBudgets: Record<string, string>;
   hutangItems: { name: string; total: string; monthly: string; interest: string; dueDay: string }[];
   warningPct: number;
   hutangPct: number;
+};
+
+export type OnboardingCategory = {
+  name: string;
+  type: CategoryType;
+  icon: string;
+  color: string;
 };
 
 const defaultData: OnboardingData = {
@@ -61,7 +70,7 @@ export function OnboardingWizard() {
       // 1. Seed income sources
       const validIncomes = data.incomeSources.filter((s) => s.name && s.amount);
       if (validIncomes.length > 0) {
-        await supabase.from('income_sources').insert(
+        const { error } = await supabase.from('income_sources').insert(
           validIncomes.map((s) => ({
             user_id: user.id,
             name: s.name,
@@ -70,14 +79,13 @@ export function OnboardingWizard() {
             is_recurring: true,
           }))
         );
+        if (error) throw new Error(`Income sources: ${error.message}`);
       }
 
       // 2. Seed categories
-      const selectedCats = DEFAULT_CATEGORIES.filter((c) =>
-        data.selectedCategories.includes(c.name)
-      );
+      const selectedCats = data.selectedCategories;
       if (selectedCats.length > 0) {
-        await supabase.from('categories').insert(
+        const { error } = await supabase.from('categories').insert(
           selectedCats.map((c, i) => ({
             user_id: user.id,
             name: c.name,
@@ -87,21 +95,23 @@ export function OnboardingWizard() {
             sort_order: i,
           }))
         );
+        if (error) throw new Error(`Categories: ${error.message}`);
       }
 
       // 3. Seed payment methods
-      await supabase.from('payment_methods').insert(
+      const { error: pmError } = await supabase.from('payment_methods').insert(
         DEFAULT_PAYMENT_METHODS.map((pm) => ({
           user_id: user.id,
           name: pm.name,
           icon: pm.icon,
         }))
       );
+      if (pmError) throw new Error(`Payment methods: ${pmError.message}`);
 
       // 4. Seed hutang
       const validHutang = data.hutangItems.filter((h) => h.name && h.total && h.monthly);
       if (validHutang.length > 0) {
-        await supabase.from('hutang').insert(
+        const { error } = await supabase.from('hutang').insert(
           validHutang.map((h, i) => ({
             user_id: user.id,
             name: h.name,
@@ -114,6 +124,7 @@ export function OnboardingWizard() {
             is_active: true,
           }))
         );
+        if (error) throw new Error(`Hutang: ${error.message}`);
       }
 
       // 5. Update profile
@@ -128,7 +139,9 @@ export function OnboardingWizard() {
       // Reload to go to dashboard
       window.location.href = '/';
     } catch (err) {
-      console.error('Onboarding error:', err);
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan';
+      console.error('Onboarding error:', message);
+      toast.error(`Gagal menyimpan: ${message}`);
       setSaving(false);
     }
   };

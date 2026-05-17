@@ -1,7 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { formatRupiah } from '@/lib/utils';
-import { CATEGORY_TYPE_COLORS } from '@/lib/constants';
 
 export function ExpenseDonut() {
   const { transactions, categories } = useBudgetStore();
@@ -18,9 +17,9 @@ export function ExpenseDonut() {
     .map(([catId, total]) => {
       const cat = categories.find((c) => c.id === catId);
       return {
-        name: cat?.name || 'Lainnya',
+        name: cat?.name || 'Lain-lain',
         value: total,
-        color: cat?.color || CATEGORY_TYPE_COLORS.lainnya,
+        color: cat?.color || '#64748b',
         icon: cat?.icon || '📦',
       };
     })

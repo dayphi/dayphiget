@@ -26,6 +26,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
 
   initialize: async () => {
+    // Prevent double initialization
+    if (get().isInitialized) return;
+
     if (!isSupabaseConfigured) {
       set({ isLoading: false, isInitialized: true });
       return;
@@ -44,10 +47,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     // Listen for auth state changes
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      const currentUserId = get().user?.id;
+      const newUserId = session?.user?.id;
+
+      // Skip token refreshes if user hasn't changed
+      if (event === 'TOKEN_REFRESHED' && currentUserId === newUserId) {
+        set({ session });
+        return;
+      }
+
       set({ user: session?.user ?? null, session });
       if (session?.user) {
-        await get().fetchProfile();
+        // Only re-fetch profile if user actually changed
+        if (currentUserId !== newUserId) {
+          await get().fetchProfile();
+        }
       } else {
         set({ profile: null });
       }
@@ -83,14 +98,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const user = get().user;
     if (!user) return;
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    // Retry a few times to handle race condition with trigger
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    if (data) {
-      set({ profile: data as Profile });
+      if (data) {
+        set({ profile: data as Profile });
+        return;
+      }
+
+      // Wait before retrying
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
   },
 

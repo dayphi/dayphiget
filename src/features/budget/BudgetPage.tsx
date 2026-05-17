@@ -1,14 +1,19 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { formatRupiah, calcPercent, cn } from '@/lib/utils';
 import { CATEGORY_TYPE_LABELS } from '@/lib/constants';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pencil, Check, X } from 'lucide-react';
+import { RupiahInput } from '@/components/ui/RupiahInput';
+import { toast } from 'sonner';
 import type { CategoryType } from '@/types';
 
 export function BudgetPage() {
   const user = useAuthStore((s) => s.user);
-  const { categories, transactions, budgetItems, isLoading, fetchAll, summary } = useBudgetStore();
+  const { categories, transactions, budgetItems, isLoading, fetchAll, summary, setBudgetItem } = useBudgetStore();
+  const [editingCat, setEditingCat] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (user) fetchAll(user.id);
@@ -69,13 +74,65 @@ export function BudgetPage() {
             <div className="divide-y divide-surface-800/30">
               {items.map((item) => {
                 const pct = item.planned > 0 ? calcPercent(item.actual, item.planned) : 0;
+                const isEditing = editingCat === item.catId;
+
+                const startEdit = () => {
+                  setEditingCat(item.catId);
+                  setEditValue(item.planned > 0 ? String(item.planned) : '');
+                };
+
+                const cancelEdit = () => {
+                  setEditingCat(null);
+                  setEditValue('');
+                };
+
+                const saveEdit = async () => {
+                  if (!user) return;
+                  const val = parseFloat(editValue) || 0;
+                  setSaving(true);
+                  try {
+                    await setBudgetItem(user.id, item.catId, val);
+                    toast.success(`Budget ${item.name} disimpan`);
+                    setEditingCat(null);
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : 'Gagal menyimpan';
+                    toast.error(msg);
+                  } finally {
+                    setSaving(false);
+                  }
+                };
+
                 return (
                   <div key={item.catId} className="px-4 py-3">
                     <div className="mb-1.5 flex items-center justify-between">
                       <div className="flex items-center gap-2"><span>{item.icon}</span><span className="text-sm text-surface-300">{item.name}</span></div>
-                      <span className="text-xs tabular-nums text-surface-400">{formatRupiah(item.actual)}{item.planned > 0 && <span className="text-surface-600"> / {formatRupiah(item.planned)}</span>}</span>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-surface-500">Rp</span>
+                          <RupiahInput
+                            value={editValue}
+                            onChange={setEditValue}
+                            onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                            autoFocus
+                            className="w-28 rounded-lg border border-primary-500 bg-surface-800/50 px-2 py-1 text-right text-xs tabular-nums text-surface-100 outline-none"
+                          />
+                          <button onClick={saveEdit} disabled={saving} className="rounded-lg p-1 text-success-400 hover:bg-success-500/10">
+                            <Check size={14} />
+                          </button>
+                          <button onClick={cancelEdit} className="rounded-lg p-1 text-surface-500 hover:bg-surface-700">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs tabular-nums text-surface-400">{formatRupiah(item.actual)}{item.planned > 0 && <span className="text-surface-600"> / {formatRupiah(item.planned)}</span>}</span>
+                          <button onClick={startEdit} className="rounded-lg p-1 text-surface-600 hover:text-primary-400 hover:bg-primary-500/10 transition-all">
+                            <Pencil size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {item.planned > 0 && (
+                    {item.planned > 0 && !isEditing && (
                       <>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-800">
                           <div className={cn('h-full rounded-full transition-all duration-500', pct >= 100 ? 'bg-danger-500' : pct >= 80 ? 'bg-warning-500' : 'bg-primary-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -85,6 +142,11 @@ export function BudgetPage() {
                           <span className={cn('tabular-nums', item.planned - item.actual < 0 ? 'text-danger-400' : 'text-surface-500')}>Sisa: {formatRupiah(item.planned - item.actual)}</span>
                         </div>
                       </>
+                    )}
+                    {item.planned === 0 && !isEditing && (
+                      <button onClick={startEdit} className="text-xs text-primary-500 hover:text-primary-400">
+                        + Set budget
+                      </button>
                     )}
                   </div>
                 );

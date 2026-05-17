@@ -43,10 +43,28 @@ interface BudgetState {
   updateTransaction: (id: string, tx: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
 
+  // Category CRUD
+  addCategory: (c: Partial<Category>) => Promise<void>;
+  updateCategory: (id: string, c: Partial<Category>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+
+  // Payment Method CRUD
+  addPaymentMethod: (pm: Partial<PaymentMethod>) => Promise<void>;
+  deletePaymentMethod: (id: string) => Promise<void>;
+
+  // Income Source CRUD
+  addIncomeSource: (s: Partial<IncomeSource>) => Promise<void>;
+  updateIncomeSource: (id: string, s: Partial<IncomeSource>) => Promise<void>;
+  deleteIncomeSource: (id: string) => Promise<void>;
+
+  // Budget Item
+  setBudgetItem: (userId: string, categoryId: string, plannedAmount: number) => Promise<void>;
+
   // Hutang CRUD
   addHutang: (h: Partial<Hutang>) => Promise<void>;
   updateHutang: (id: string, h: Partial<Hutang>) => Promise<void>;
   deleteHutang: (id: string) => Promise<void>;
+  payHutang: (hutangId: string, userId: string, customAmount?: number) => Promise<void>;
 }
 
 export const useBudgetStore = create<BudgetState>((set, get) => ({
@@ -63,7 +81,10 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   setCurrentMonth: (month) => set({ currentMonth: month }),
 
   fetchAll: async (userId) => {
-    set({ isLoading: true });
+    // Only show loading spinner on first load
+    const isFirstLoad = get().transactions.length === 0 && get().categories.length === 0;
+    if (isFirstLoad) set({ isLoading: true });
+
     await Promise.all([
       get().fetchCategories(userId),
       get().fetchIncomeSources(userId),
@@ -73,17 +94,15 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       get().fetchHutang(userId),
     ]);
     get().computeSummary();
-    set({ isLoading: false });
+    if (isFirstLoad) set({ isLoading: false });
   },
 
   fetchTransactions: async (userId) => {
     const month = get().currentMonth;
     const startDate = `${month}-01`;
-    const endDate = new Date(
-      parseInt(month.split('-')[0]),
-      parseInt(month.split('-')[1]),
-      0
-    ).toISOString().split('T')[0];
+    // Last day of month using local date (avoid UTC shift)
+    const d = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0);
+    const endDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
     const { data } = await supabase
       .from('transactions')
@@ -136,6 +155,56 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     if (data) set({ budgetItems: data as BudgetItem[] });
   },
 
+  setBudgetItem: async (userId, categoryId, plannedAmount) => {
+    const month = get().currentMonth;
+
+    // 1. Ensure budget record exists for this month
+    let { data: budget } = await supabase
+      .from('budgets')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('month', month)
+      .single();
+
+    if (!budget) {
+      const { data: newBudget, error } = await supabase
+        .from('budgets')
+        .insert({ user_id: userId, month })
+        .select('id')
+        .single();
+      if (error) throw new Error(error.message);
+      budget = newBudget;
+    }
+
+    if (!budget) throw new Error('Gagal membuat budget');
+
+    // 2. Upsert budget item
+    const existing = get().budgetItems.find(
+      (bi) => bi.category_id === categoryId
+    );
+
+    if (existing) {
+      const { error } = await supabase
+        .from('budget_items')
+        .update({ planned_amount: plannedAmount })
+        .eq('id', existing.id);
+      if (error) throw new Error(error.message);
+      set((s) => ({
+        budgetItems: s.budgetItems.map((bi) =>
+          bi.id === existing.id ? { ...bi, planned_amount: plannedAmount } : bi
+        ),
+      }));
+    } else {
+      const { data, error } = await supabase
+        .from('budget_items')
+        .insert({ budget_id: budget.id, category_id: categoryId, planned_amount: plannedAmount })
+        .select('*, category:categories(*)')
+        .single();
+      if (error) throw new Error(error.message);
+      if (data) set((s) => ({ budgetItems: [...s.budgetItems, data as BudgetItem] }));
+    }
+  },
+
   fetchHutang: async (userId) => {
     const { data } = await supabase
       .from('hutang')
@@ -150,7 +219,11 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   computeSummary: () => {
     const { transactions, incomeSources, hutangList } = get();
 
-    const totalIncome = incomeSources.reduce((sum, s) => sum + Number(s.amount), 0);
+    const recurringIncome = incomeSources.reduce((sum, s) => sum + Number(s.amount), 0);
+    const txIncome = transactions
+      .filter((t) => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalIncome = recurringIncome + txIncome;
     const totalExpense = transactions
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -159,13 +232,16 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
 
     const now = new Date();
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysRemaining = Math.max(lastDay - now.getDate(), 1);
-    const dailyLimit = Math.max(sisaBudget / daysRemaining, 0);
+    const daysRemaining = Math.max(lastDay - now.getDate() + 1, 1); // include today
 
-    const todayStr = now.toISOString().split('T')[0];
+    // Use local date string (not UTC)
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const todaySpent = transactions
       .filter((t) => t.type === 'expense' && t.date === todayStr)
       .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    // Add back today's spending so dailyLimit represents the full daily budget (not yet reduced)
+    const dailyLimit = Math.max((sisaBudget + todaySpent) / daysRemaining, 0);
 
     const sisaPct = totalIncome > 0 ? (sisaBudget / totalIncome) * 100 : 0;
     const status = sisaBudget < 0 ? 'deficit' : sisaPct < 15 ? 'warning' : 'healthy';
@@ -225,6 +301,60 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     get().computeSummary();
   },
 
+  // ---- Category CRUD ----
+  addCategory: async (c) => {
+    const { data, error } = await supabase.from('categories').insert(c).select().single();
+    if (error) throw new Error(error.message);
+    if (data) set((s) => ({ categories: [...s.categories, data as Category] }));
+  },
+
+  updateCategory: async (id, c) => {
+    const { data, error } = await supabase.from('categories').update(c).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    if (data) set((s) => ({ categories: s.categories.map((cat) => cat.id === id ? (data as Category) : cat) }));
+  },
+
+  deleteCategory: async (id) => {
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
+  },
+
+  // ---- Payment Method CRUD ----
+  addPaymentMethod: async (pm) => {
+    const { data, error } = await supabase.from('payment_methods').insert(pm).select().single();
+    if (error) throw new Error(error.message);
+    if (data) set((s) => ({ paymentMethods: [...s.paymentMethods, data as PaymentMethod] }));
+  },
+
+  deletePaymentMethod: async (id) => {
+    const { error } = await supabase.from('payment_methods').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((s) => ({ paymentMethods: s.paymentMethods.filter((p) => p.id !== id) }));
+  },
+
+  // ---- Income Source CRUD ----
+  addIncomeSource: async (s) => {
+    const { data, error } = await supabase.from('income_sources').insert(s).select().single();
+    if (error) throw new Error(error.message);
+    if (data) set((state) => ({ incomeSources: [...state.incomeSources, data as IncomeSource] }));
+    get().computeSummary();
+  },
+
+  updateIncomeSource: async (id, s) => {
+    const { data, error } = await supabase.from('income_sources').update(s).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    if (data) set((state) => ({ incomeSources: state.incomeSources.map((i) => i.id === id ? (data as IncomeSource) : i) }));
+    get().computeSummary();
+  },
+
+  deleteIncomeSource: async (id) => {
+    const { error } = await supabase.from('income_sources').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((s) => ({ incomeSources: s.incomeSources.filter((i) => i.id !== id) }));
+    get().computeSummary();
+  },
+
   addHutang: async (h) => {
     const { data } = await supabase
       .from('hutang')
@@ -262,6 +392,80 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     await supabase.from('hutang').delete().eq('id', id);
     set((state) => ({
       hutangList: state.hutangList.filter((h) => h.id !== id),
+    }));
+    get().computeSummary();
+  },
+
+  payHutang: async (hutangId, userId, customAmount) => {
+    const hutang = get().hutangList.find((h) => h.id === hutangId);
+    if (!hutang) throw new Error('Hutang tidak ditemukan');
+
+    const remaining = Number(hutang.remaining);
+    if (remaining <= 0) throw new Error('Hutang sudah lunas');
+
+    const monthly = Number(hutang.monthly_payment);
+    const payment = customAmount
+      ? Math.min(customAmount, remaining)
+      : monthly > 0
+        ? Math.min(monthly, remaining)
+        : 0;
+    if (payment <= 0) throw new Error('Jumlah pembayaran harus lebih dari 0');
+
+    const newRemaining = Math.max(Number(hutang.remaining) - payment, 0);
+
+    // 1. Update hutang remaining (keep active, user can delete manually)
+    const { error: hutangError } = await supabase
+      .from('hutang')
+      .update({
+        remaining: newRemaining,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', hutangId);
+    if (hutangError) throw new Error(hutangError.message);
+
+    // 2. Find or create a 'Cicilan Hutang' category for this user
+    let { data: hutangCat } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('name', 'Cicilan Hutang')
+      .limit(1)
+      .single();
+
+    if (!hutangCat) {
+      const { data: newCat, error: catError } = await supabase
+        .from('categories')
+        .insert({ user_id: userId, name: 'Cicilan Hutang', type: 'pokok', icon: '💳', color: '#f43f5e', sort_order: 0 })
+        .select('id')
+        .single();
+      if (catError) throw new Error(catError.message);
+      hutangCat = newCat;
+    }
+
+    // 3. Record as expense transaction
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const { data: txData, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        type: 'expense',
+        category_id: hutangCat!.id,
+        amount: payment,
+        date: todayStr,
+        notes: `Bayar cicilan: ${hutang.name}`,
+      })
+      .select('*, category:categories(*), payment_method:payment_methods(*)')
+      .single();
+    if (txError) throw new Error(txError.message);
+
+    // 4. Update local state
+    set((s) => ({
+      hutangList: s.hutangList.map((h) =>
+        h.id === hutangId ? { ...h, remaining: newRemaining } : h
+      ),
+      transactions: txData ? [txData as Transaction, ...s.transactions] : s.transactions,
     }));
     get().computeSummary();
   },

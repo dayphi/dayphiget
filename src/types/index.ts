@@ -1,6 +1,6 @@
 // ===== Database Types =====
 
-export type CategoryType = 'pokok' | 'hutang' | 'variabel' | 'tabungan' | 'lainnya';
+export type CategoryType = 'pokok' | 'variabel' | 'tabungan';
 export type TransactionType = 'income' | 'expense';
 export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type ThemeMode = 'light' | 'dark' | 'system';

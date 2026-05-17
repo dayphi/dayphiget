@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router';
 import {
   Home,
@@ -7,10 +8,12 @@ import {
   Settings,
   Bell,
   LogOut,
+  X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatRupiah } from '@/lib/utils';
 import { APP_NAME } from '@/lib/constants';
 import { useAuthStore } from '@/stores/authStore';
+import { useBudgetStore } from '@/stores/budgetStore';
 
 const navItems = [
   { path: '/', label: 'Home', icon: Home },
@@ -23,6 +26,48 @@ const navItems = [
 export function AppLayout() {
   const location = useLocation();
   const signOut = useAuthStore((s) => s.signOut);
+  const profile = useAuthStore((s) => s.profile);
+  const { summary, hutangList } = useBudgetStore();
+  const [showAlerts, setShowAlerts] = useState(false);
+
+  const alerts = useMemo(() => {
+    const list: { id: string; message: string; severity: 'info' | 'warning' | 'danger' }[] = [];
+    if (!summary) return list;
+
+    const warningPct = profile?.alert_warning_pct ?? 15;
+    const hutangPct = profile?.alert_hutang_pct ?? 30;
+    const totalIncome = summary.totalIncome;
+
+    if (summary.status === 'deficit') {
+      list.push({ id: 'deficit', message: `Budget deficit! Pengeluaran melebihi pemasukan sebesar ${formatRupiah(Math.abs(summary.sisaBudget))}`, severity: 'danger' });
+    } else if (totalIncome > 0 && (summary.sisaBudget / totalIncome) * 100 < warningPct) {
+      list.push({ id: 'warning', message: `Sisa budget tinggal ${Math.round((summary.sisaBudget / totalIncome) * 100)}% — di bawah threshold ${warningPct}%`, severity: 'warning' });
+    }
+
+    if (summary.todaySpent > summary.dailyLimit) {
+      list.push({ id: 'daily', message: `Spending hari ini (${formatRupiah(summary.todaySpent)}) melebihi limit harian (${formatRupiah(summary.dailyLimit)})`, severity: 'warning' });
+    }
+
+    if (totalIncome > 0 && (summary.totalHutang / totalIncome) * 100 > hutangPct) {
+      list.push({ id: 'hutang_ratio', message: `Rasio cicilan ${Math.round((summary.totalHutang / totalIncome) * 100)}% melebihi threshold ${hutangPct}%`, severity: 'danger' });
+    }
+
+    const today = new Date().getDate();
+    hutangList.filter((h) => h.is_active && h.due_day).forEach((h) => {
+      const diff = (h.due_day! - today + 31) % 31;
+      if (diff <= 3 && diff >= 0) {
+        list.push({ id: `due-${h.id}`, message: `${h.name} jatuh tempo ${diff === 0 ? 'hari ini' : `${diff} hari lagi`} (tgl ${h.due_day})`, severity: diff === 0 ? 'danger' : 'warning' });
+      }
+    });
+
+    if (list.length === 0) {
+      list.push({ id: 'ok', message: 'Semua aman! Tidak ada peringatan.', severity: 'info' });
+    }
+
+    return list;
+  }, [summary, hutangList, profile]);
+
+  const hasWarnings = alerts.some((a) => a.severity !== 'info');
 
   return (
     <div className="flex min-h-dvh flex-col bg-surface-950">
@@ -31,11 +76,12 @@ export function AppLayout() {
         <h1 className="text-lg font-bold text-gradient">{APP_NAME}</h1>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowAlerts(!showAlerts)}
             className="relative rounded-lg p-2 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-200"
             aria-label="Notifications"
           >
             <Bell size={20} />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger-500" />
+            {hasWarnings && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger-500" />}
           </button>
           <button
             onClick={signOut}
@@ -46,6 +92,31 @@ export function AppLayout() {
           </button>
         </div>
       </header>
+
+      {/* Alerts dropdown */}
+      {showAlerts && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowAlerts(false)} />
+          <div className="fixed top-14 right-3 z-40 w-80 glass-card animate-slide-down overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-surface-700/50">
+              <p className="text-sm font-semibold text-surface-200">Notifikasi</p>
+              <button onClick={() => setShowAlerts(false)} className="text-surface-500 hover:text-surface-300">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-64 overflow-y-auto divide-y divide-surface-800/30">
+              {alerts.map((alert) => (
+                <div key={alert.id} className="flex items-start gap-3 px-4 py-3">
+                  <span className="mt-0.5 text-sm">
+                    {alert.severity === 'danger' ? '🔴' : alert.severity === 'warning' ? '🟡' : '🟢'}
+                  </span>
+                  <p className="text-xs text-surface-300 leading-relaxed">{alert.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Page content */}
       <main className="flex-1 px-4 pb-24 pt-2">

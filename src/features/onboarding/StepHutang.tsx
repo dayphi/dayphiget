@@ -1,5 +1,6 @@
 import type { OnboardingData } from './OnboardingWizard';
 import { Plus, Trash2, CreditCard } from 'lucide-react';
+import { RupiahInput } from '@/components/ui/RupiahInput';
 
 interface Props {
   data: OnboardingData;
@@ -79,20 +80,18 @@ export function StepHutang({ data, onChange }: Props) {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-surface-500">Rp</span>
-                      <input
-                        type="number"
+                      <RupiahInput
                         value={item.total}
-                        onChange={(e) => updateItem(i, 'total', e.target.value)}
+                        onChange={(val) => updateItem(i, 'total', val)}
                         placeholder="Total hutang"
                         className="w-full rounded-xl border border-surface-700 bg-surface-800/50 py-2.5 pl-10 pr-3 text-sm tabular-nums text-surface-100 placeholder:text-surface-500 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
                       />
                     </div>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-surface-500">Rp</span>
-                      <input
-                        type="number"
+                      <RupiahInput
                         value={item.monthly}
-                        onChange={(e) => updateItem(i, 'monthly', e.target.value)}
+                        onChange={(val) => updateItem(i, 'monthly', val)}
                         placeholder="Cicilan/bln"
                         className="w-full rounded-xl border border-surface-700 bg-surface-800/50 py-2.5 pl-10 pr-3 text-sm tabular-nums text-surface-100 placeholder:text-surface-500 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
                       />

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router';
 import { Toaster } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
+import { useTheme } from '@/lib/useTheme';
 
 // Layout
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -23,6 +24,8 @@ export default function App() {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  useTheme();
 
   return (
     <BrowserRouter>
