@@ -138,13 +138,13 @@ export function AppLayout() {
       )}
 
       {/* Page content */}
-      <main className="flex-1 px-4 pb-24 pt-2">
+      <main className="flex-1 px-4 pb-32 pt-2">
         <Outlet />
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="glass fixed bottom-0 left-0 right-0 z-30 safe-bottom">
-        <div className="mx-auto flex max-w-lg items-center justify-around py-1">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-surface-700/70 bg-surface-900 shadow-2xl shadow-black/30 safe-bottom">
+        <div className="mx-auto flex max-w-lg items-center justify-around px-2 pt-1">
           {navItems.map(({ path, label, icon: Icon }) => {
             const isActive =
               path === '/'
