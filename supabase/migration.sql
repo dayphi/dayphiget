@@ -53,8 +53,12 @@ CREATE TABLE IF NOT EXISTS payment_methods (
   user_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
   icon       TEXT,
+  initial_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE payment_methods
+  ADD COLUMN IF NOT EXISTS initial_balance NUMERIC(15,2) NOT NULL DEFAULT 0;
 
 -- ====== TRANSACTIONS ======
 CREATE TABLE IF NOT EXISTS transactions (
@@ -76,6 +80,21 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_tx_category ON transactions(category_id);
 CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(user_id, type);
+
+-- ====== WALLET TRANSFERS ======
+CREATE TABLE IF NOT EXISTS wallet_transfers (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                 UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  from_payment_method_id  UUID NOT NULL REFERENCES payment_methods(id),
+  to_payment_method_id    UUID NOT NULL REFERENCES payment_methods(id),
+  amount                  NUMERIC(15,2) NOT NULL CHECK (amount > 0),
+  date                    DATE NOT NULL DEFAULT CURRENT_DATE,
+  notes                   TEXT,
+  created_at              TIMESTAMPTZ DEFAULT now(),
+  CHECK (from_payment_method_id <> to_payment_method_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_transfers_user_date ON wallet_transfers(user_id, date DESC);
 
 -- ====== BUDGETS ======
 CREATE TABLE IF NOT EXISTS budgets (
@@ -148,6 +167,7 @@ ALTER TABLE income_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_methods ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wallet_transfers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hutang ENABLE ROW LEVEL SECURITY;
@@ -155,31 +175,70 @@ ALTER TABLE scenarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quick_templates ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: users can CRUD their own profile
+DROP POLICY IF EXISTS "Users manage own profile" ON profiles;
 CREATE POLICY "Users manage own profile" ON profiles
   FOR ALL USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
 -- All other tables: users manage own data via user_id
+DROP POLICY IF EXISTS "Users manage own data" ON income_sources;
 CREATE POLICY "Users manage own data" ON income_sources
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own data" ON categories;
 CREATE POLICY "Users manage own data" ON categories
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own data" ON payment_methods;
 CREATE POLICY "Users manage own data" ON payment_methods
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own data" ON transactions;
 CREATE POLICY "Users manage own data" ON transactions
   FOR ALL USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM categories
+      WHERE categories.id = transactions.category_id
+        AND categories.user_id = auth.uid()
+    )
+    AND (
+      payment_method_id IS NULL
+      OR EXISTS (
+        SELECT 1 FROM payment_methods
+        WHERE payment_methods.id = transactions.payment_method_id
+          AND payment_methods.user_id = auth.uid()
+      )
+    )
+  );
 
+DROP POLICY IF EXISTS "Users manage own data" ON wallet_transfers;
+CREATE POLICY "Users manage own data" ON wallet_transfers
+  FOR ALL USING (auth.uid() = user_id)
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM payment_methods
+      WHERE payment_methods.id = wallet_transfers.from_payment_method_id
+        AND payment_methods.user_id = auth.uid()
+    )
+    AND EXISTS (
+      SELECT 1 FROM payment_methods
+      WHERE payment_methods.id = wallet_transfers.to_payment_method_id
+        AND payment_methods.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users manage own data" ON budgets;
 CREATE POLICY "Users manage own data" ON budgets
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own budget items" ON budget_items;
 CREATE POLICY "Users manage own budget items" ON budget_items
   FOR ALL USING (
     EXISTS (SELECT 1 FROM budgets WHERE budgets.id = budget_items.budget_id AND budgets.user_id = auth.uid())
@@ -188,14 +247,17 @@ CREATE POLICY "Users manage own budget items" ON budget_items
     EXISTS (SELECT 1 FROM budgets WHERE budgets.id = budget_items.budget_id AND budgets.user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Users manage own data" ON hutang;
 CREATE POLICY "Users manage own data" ON hutang
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own data" ON scenarios;
 CREATE POLICY "Users manage own data" ON scenarios
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own data" ON quick_templates;
 CREATE POLICY "Users manage own data" ON quick_templates
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);

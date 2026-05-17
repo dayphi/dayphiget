@@ -67,12 +67,12 @@ export function AddTransactionSheet({ onClose }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !amount || !categoryId) return;
+    if (!user || !amount || !categoryId || (paymentMethods.length > 0 && !paymentMethodId)) return;
 
     setLoading(true);
     try {
       if (isHutangSelected && selectedHutangId) {
-        await payHutang(selectedHutangId, user.id, parseFloat(amount));
+        await payHutang(selectedHutangId, user.id, parseFloat(amount), paymentMethodId || undefined);
         toast.success('Cicilan hutang dibayar! ✅');
       } else {
         await addTransaction({
@@ -105,7 +105,7 @@ export function AddTransactionSheet({ onClose }: Props) {
           <button
             key={t}
             type="button"
-            onClick={() => { setType(t); setCategoryId(''); setAmount(''); setNotes(''); }}
+            onClick={() => { setType(t); setCategoryId(''); setAmount(''); setPaymentMethodId(''); setNotes(''); }}
             className={cn(
               'flex-1 rounded-lg py-2.5 text-sm font-medium transition-all duration-200',
               type === t
@@ -234,10 +234,12 @@ export function AddTransactionSheet({ onClose }: Props) {
         />
       </div>
 
-      {/* Payment Method */}
-      {type === 'expense' && paymentMethods.length > 0 && (
+      {/* Wallet */}
+      {paymentMethods.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-surface-300">Metode Bayar</label>
+          <label className="text-sm font-medium text-surface-300">
+            {type === 'income' ? 'Masuk ke Wallet *' : 'Bayar dari Wallet *'}
+          </label>
           <div className="flex flex-wrap gap-2">
             {paymentMethods.map((pm) => (
               <button
@@ -275,7 +277,7 @@ export function AddTransactionSheet({ onClose }: Props) {
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading || !amount || !categoryId}
+        disabled={loading || !amount || !categoryId || (paymentMethods.length > 0 && !paymentMethodId)}
         className="flex items-center justify-center gap-2 rounded-xl gradient-primary py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition-all hover:shadow-primary-600/40 disabled:opacity-40"
       >
         {loading ? (

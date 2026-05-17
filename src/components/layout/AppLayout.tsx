@@ -18,8 +18,8 @@ import { useBudgetStore } from '@/stores/budgetStore';
 const navItems = [
   { path: '/', label: 'Home', icon: Home },
   { path: '/transactions', label: 'Transaksi', icon: Receipt },
+  { path: '/wallet', label: 'Wallet', icon: CreditCard },
   { path: '/budget', label: 'Budget', icon: PieChart },
-  { path: '/hutang', label: 'Hutang', icon: CreditCard },
   { path: '/settings', label: 'Lainnya', icon: Settings },
 ];
 
@@ -137,7 +137,7 @@ export function AppLayout() {
                 key={path}
                 to={path}
                 className={cn(
-                  'flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-200',
+                  'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[11px] font-medium transition-all duration-200',
                   isActive
                     ? 'text-primary-400'
                     : 'text-surface-500 hover:text-surface-300'
@@ -150,7 +150,7 @@ export function AppLayout() {
                     isActive && 'scale-110'
                   )}
                 />
-                <span>{label}</span>
+                <span className="max-w-full truncate">{label}</span>
                 {isActive && (
                   <span className="mt-0.5 h-1 w-1 rounded-full bg-primary-400" />
                 )}

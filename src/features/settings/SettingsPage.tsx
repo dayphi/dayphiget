@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +15,7 @@ import { AlertSettingsSheet } from './AlertSettingsSheet';
 type SheetType = 'categories' | 'payment' | 'income' | 'alerts' | null;
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const { user, profile, updateProfile, signOut } = useAuthStore();
   const { transactions } = useBudgetStore();
   const theme = profile?.theme || 'dark';
@@ -26,16 +28,17 @@ export function SettingsPage() {
     { value: 'system', icon: Monitor, label: 'System' },
   ] as const;
 
-  const menuItems: { key: SheetType; label: string; desc: string; icon: string }[] = [
+  const menuItems: { key: SheetType; label: string; desc: string; icon: string; path?: string }[] = [
     { key: 'categories', label: 'Kategori', desc: 'Kelola kategori pengeluaran', icon: '📂' },
     { key: 'payment', label: 'Metode Pembayaran', desc: 'Cash, transfer, e-wallet', icon: '💳' },
     { key: 'income', label: 'Sumber Pendapatan', desc: 'Gaji, freelance, dll', icon: '💰' },
+    { key: null, label: 'Hutang', desc: 'Kelola cicilan dan pinjaman', icon: '💳', path: '/hutang' },
     { key: 'alerts', label: 'Alert & Notifikasi', desc: 'Atur threshold peringatan', icon: '🔔' },
   ];
 
   const sheetTitles: Record<string, string> = {
     categories: 'Kelola Kategori',
-    payment: 'Metode Pembayaran',
+    payment: 'Wallet',
     income: 'Sumber Pendapatan',
     alerts: 'Alert & Notifikasi',
   };
@@ -46,7 +49,7 @@ export function SettingsPage() {
       return;
     }
 
-    const headers = ['Tanggal', 'Tipe', 'Kategori', 'Jumlah', 'Metode Bayar', 'Catatan'];
+    const headers = ['Tanggal', 'Tipe', 'Kategori', 'Jumlah', 'Wallet', 'Catatan'];
     const rows = transactions.map((tx) => [
       tx.date,
       tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
@@ -77,6 +80,7 @@ export function SettingsPage() {
     setResetting(true);
     try {
       await supabase.from('transactions').delete().eq('user_id', user.id);
+      await supabase.from('wallet_transfers').delete().eq('user_id', user.id);
       await supabase.from('budget_items').delete().in(
         'budget_id',
         (await supabase.from('budgets').select('id').eq('user_id', user.id)).data?.map((b) => b.id) || []
@@ -157,7 +161,7 @@ export function SettingsPage() {
         {menuItems.map((item) => (
           <button
             key={item.key}
-            onClick={() => setActiveSheet(item.key)}
+            onClick={() => item.path ? navigate(item.path) : setActiveSheet(item.key)}
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-800/30"
           >
             <span className="text-lg">{item.icon}</span>

@@ -57,14 +57,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
-      set({ user: session?.user ?? null, session });
       if (session?.user) {
-        // Only re-fetch profile if user actually changed
         if (currentUserId !== newUserId) {
+          set({ user: session.user, session, profile: null, isLoading: true });
           await get().fetchProfile();
+          set({ isLoading: false });
+        } else {
+          set({ user: session.user, session });
         }
       } else {
-        set({ profile: null });
+        set({ user: null, session: null, profile: null, isLoading: false });
       }
     });
   },
@@ -90,8 +92,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    set({ isLoading: true });
     await supabase.auth.signOut();
-    set({ user: null, session: null, profile: null });
+    set({ user: null, session: null, profile: null, isLoading: false });
   },
 
   fetchProfile: async () => {

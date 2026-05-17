@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { Trash2, Plus, Loader2 } from 'lucide-react';
+import { RupiahInput } from '@/components/ui/RupiahInput';
+import { formatRupiah } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const ICON_OPTIONS = [
@@ -19,6 +21,7 @@ export function ManagePaymentMethodsSheet(_props: Props) {
   const { paymentMethods, addPaymentMethod, deletePaymentMethod } = useBudgetStore();
 
   const [name, setName] = useState('');
+  const [initialBalance, setInitialBalance] = useState('');
   const [icon, setIcon] = useState('💳');
   const [adding, setAdding] = useState(false);
 
@@ -26,8 +29,14 @@ export function ManagePaymentMethodsSheet(_props: Props) {
     if (!user || !name.trim()) return;
     setAdding(true);
     try {
-      await addPaymentMethod({ user_id: user.id, name: name.trim(), icon });
+      await addPaymentMethod({
+        user_id: user.id,
+        name: name.trim(),
+        icon,
+        initial_balance: parseFloat(initialBalance) || 0,
+      });
       setName('');
+      setInitialBalance('');
       toast.success('Metode pembayaran ditambahkan');
     } catch {
       toast.error('Gagal menambahkan');
@@ -90,12 +99,25 @@ export function ManagePaymentMethodsSheet(_props: Props) {
         </button>
       </div>
 
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-surface-500">Rp</span>
+        <RupiahInput
+          value={initialBalance}
+          onChange={setInitialBalance}
+          placeholder="Saldo awal wallet"
+          className="w-full rounded-xl border border-surface-700 bg-surface-800/50 py-2.5 pl-10 pr-4 text-sm tabular-nums text-surface-100 placeholder:text-surface-500 outline-none focus:border-primary-500"
+        />
+      </div>
+
       {/* List */}
       <div className="glass-card divide-y divide-surface-800/50">
         {paymentMethods.map((pm) => (
           <div key={pm.id} className="flex items-center gap-3 px-4 py-3">
             <span className="text-lg">{pm.icon || '💳'}</span>
-            <span className="flex-1 text-sm text-surface-200">{pm.name}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-surface-200 truncate">{pm.name}</p>
+              <p className="text-xs text-surface-500">Saldo awal {formatRupiah(Number(pm.initial_balance || 0))}</p>
+            </div>
             <button
               onClick={() => handleDelete(pm.id)}
               className="rounded-lg p-1.5 text-surface-500 hover:text-danger-400 hover:bg-danger-500/10 transition-all"

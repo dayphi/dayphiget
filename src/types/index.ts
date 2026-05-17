@@ -44,7 +44,31 @@ export interface PaymentMethod {
   user_id: string;
   name: string;
   icon: string | null;
+  initial_balance: number;
   created_at: string;
+}
+
+export interface WalletTransfer {
+  id: string;
+  user_id: string;
+  from_payment_method_id: string;
+  to_payment_method_id: string;
+  amount: number;
+  date: string;
+  notes: string | null;
+  created_at: string;
+  // Joined fields
+  from_payment_method?: PaymentMethod;
+  to_payment_method?: PaymentMethod;
+}
+
+export interface WalletBalance {
+  wallet: PaymentMethod;
+  balance: number;
+  income: number;
+  expense: number;
+  transferIn: number;
+  transferOut: number;
 }
 
 export interface Transaction {
@@ -132,6 +156,12 @@ export interface DashboardSummary {
   totalIncome: number;
   totalExpense: number;
   totalHutang: number;
+  remainingHutang: number;
+  plannedSpend: number;
+  plannedSavings: number;
+  remainingSpendBudget: number;
+  remainingSavingsBudget: number;
+  dailyLimitSource: 'budget' | 'cashflow';
   sisaBudget: number;
   status: BudgetStatus;
   dailyLimit: number;

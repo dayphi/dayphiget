@@ -6,6 +6,8 @@ import type {
   Category,
   IncomeSource,
   PaymentMethod,
+  WalletTransfer,
+  WalletBalance,
   BudgetItem,
   Hutang,
   DashboardSummary,
@@ -17,6 +19,8 @@ interface BudgetState {
   categories: Category[];
   incomeSources: IncomeSource[];
   paymentMethods: PaymentMethod[];
+  walletTransfers: WalletTransfer[];
+  walletBalances: WalletBalance[];
   budgetItems: BudgetItem[];
   hutangList: Hutang[];
   currentMonth: string;
@@ -34,6 +38,7 @@ interface BudgetState {
   fetchCategories: (userId: string) => Promise<void>;
   fetchIncomeSources: (userId: string) => Promise<void>;
   fetchPaymentMethods: (userId: string) => Promise<void>;
+  fetchWalletTransfers: (userId: string) => Promise<void>;
   fetchBudgetItems: (userId: string) => Promise<void>;
   fetchHutang: (userId: string) => Promise<void>;
   computeSummary: () => void;
@@ -51,6 +56,7 @@ interface BudgetState {
   // Payment Method CRUD
   addPaymentMethod: (pm: Partial<PaymentMethod>) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
+  addWalletTransfer: (transfer: Partial<WalletTransfer>) => Promise<void>;
 
   // Income Source CRUD
   addIncomeSource: (s: Partial<IncomeSource>) => Promise<void>;
@@ -64,7 +70,7 @@ interface BudgetState {
   addHutang: (h: Partial<Hutang>) => Promise<void>;
   updateHutang: (id: string, h: Partial<Hutang>) => Promise<void>;
   deleteHutang: (id: string) => Promise<void>;
-  payHutang: (hutangId: string, userId: string, customAmount?: number) => Promise<void>;
+  payHutang: (hutangId: string, userId: string, customAmount?: number, paymentMethodId?: string) => Promise<void>;
 }
 
 export const useBudgetStore = create<BudgetState>((set, get) => ({
@@ -72,6 +78,8 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   categories: [],
   incomeSources: [],
   paymentMethods: [],
+  walletTransfers: [],
+  walletBalances: [],
   budgetItems: [],
   hutangList: [],
   currentMonth: getCurrentMonth(),
@@ -89,6 +97,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       get().fetchCategories(userId),
       get().fetchIncomeSources(userId),
       get().fetchPaymentMethods(userId),
+      get().fetchWalletTransfers(userId),
       get().fetchTransactions(userId),
       get().fetchBudgetItems(userId),
       get().fetchHutang(userId),
@@ -142,6 +151,24 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       .eq('user_id', userId);
 
     if (data) set({ paymentMethods: data as PaymentMethod[] });
+  },
+
+  fetchWalletTransfers: async (userId) => {
+    const month = get().currentMonth;
+    const startDate = `${month}-01`;
+    const d = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0);
+    const endDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const { data } = await supabase
+      .from('wallet_transfers')
+      .select('*, from_payment_method:payment_methods!wallet_transfers_from_payment_method_id_fkey(*), to_payment_method:payment_methods!wallet_transfers_to_payment_method_id_fkey(*)')
+      .eq('user_id', userId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (data) set({ walletTransfers: data as WalletTransfer[] });
   },
 
   fetchBudgetItems: async (userId) => {
@@ -217,18 +244,20 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   },
 
   computeSummary: () => {
-    const { transactions, incomeSources, hutangList } = get();
+    const { transactions, incomeSources, hutangList, paymentMethods, walletTransfers, budgetItems } = get();
 
     const recurringIncome = incomeSources.reduce((sum, s) => sum + Number(s.amount), 0);
     const txIncome = transactions
       .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + Number(t.amount), 0);
     const totalIncome = recurringIncome + txIncome;
-    const totalExpense = transactions
-      .filter((t) => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const expenses = transactions.filter((t) => t.type === 'expense');
+    const totalExpense = expenses.reduce((sum, t) => sum + Number(t.amount), 0);
     const totalHutang = hutangList.reduce((sum, h) => sum + Number(h.monthly_payment), 0);
-    const sisaBudget = totalIncome - totalExpense - totalHutang;
+    const hutangPaid = expenses
+      .filter((t) => t.notes?.startsWith('Bayar cicilan:') || t.category?.name === 'Cicilan Hutang')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const remainingHutang = Math.max(totalHutang - hutangPaid, 0);
 
     const now = new Date();
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -236,27 +265,79 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
 
     // Use local date string (not UTC)
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const todaySpent = transactions
-      .filter((t) => t.type === 'expense' && t.date === todayStr)
+    const spendableExpenses = expenses.filter(
+      (t) => t.category?.type !== 'tabungan' && t.category?.name !== 'Cicilan Hutang' && !t.notes?.startsWith('Bayar cicilan:')
+    );
+    const savingsExpenses = expenses.filter((t) => t.category?.type === 'tabungan');
+
+    const plannedSpend = budgetItems
+      .filter((item) => item.category?.type !== 'tabungan' && item.category?.name !== 'Cicilan Hutang')
+      .reduce((sum, item) => sum + Number(item.planned_amount), 0);
+    const plannedSavings = budgetItems
+      .filter((item) => item.category?.type === 'tabungan')
+      .reduce((sum, item) => sum + Number(item.planned_amount), 0);
+    const spendableSpent = spendableExpenses.reduce((sum, t) => sum + Number(t.amount), 0);
+    const savingsSpent = savingsExpenses.reduce((sum, t) => sum + Number(t.amount), 0);
+    const remainingSpendBudget = Math.max(plannedSpend - spendableSpent, 0);
+    const remainingSavingsBudget = Math.max(plannedSavings - savingsSpent, 0);
+    const sisaBudget = totalIncome - totalExpense - remainingHutang;
+
+    const todaySpent = spendableExpenses
+      .filter((t) => t.date === todayStr)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    // Add back today's spending so dailyLimit represents the full daily budget (not yet reduced)
-    const dailyLimit = Math.max((sisaBudget + todaySpent) / daysRemaining, 0);
+    const dailyLimitSource = plannedSpend > 0 ? 'budget' : 'cashflow';
+    const dailyLimitBase = plannedSpend > 0
+      ? remainingSpendBudget
+      : Math.max(sisaBudget - remainingSavingsBudget, 0);
+    const dailyLimit = Math.max((dailyLimitBase + todaySpent) / daysRemaining, 0);
 
     const sisaPct = totalIncome > 0 ? (sisaBudget / totalIncome) * 100 : 0;
     const status = sisaBudget < 0 ? 'deficit' : sisaPct < 15 ? 'warning' : 'healthy';
+
+    const walletBalances = paymentMethods.map((wallet) => {
+      const walletId = wallet.id;
+      const income = transactions
+        .filter((t) => t.type === 'income' && t.payment_method_id === walletId)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const expense = transactions
+        .filter((t) => t.type === 'expense' && t.payment_method_id === walletId)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const transferIn = walletTransfers
+        .filter((t) => t.to_payment_method_id === walletId)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const transferOut = walletTransfers
+        .filter((t) => t.from_payment_method_id === walletId)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      return {
+        wallet,
+        income,
+        expense,
+        transferIn,
+        transferOut,
+        balance: Number(wallet.initial_balance || 0) + income - expense + transferIn - transferOut,
+      };
+    });
 
     set({
       summary: {
         totalIncome,
         totalExpense,
         totalHutang,
+        remainingHutang,
+        plannedSpend,
+        plannedSavings,
+        remainingSpendBudget,
+        remainingSavingsBudget,
+        dailyLimitSource,
         sisaBudget,
         status,
         dailyLimit,
         todaySpent,
         daysRemaining,
       },
+      walletBalances,
     });
   },
 
@@ -325,12 +406,27 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const { data, error } = await supabase.from('payment_methods').insert(pm).select().single();
     if (error) throw new Error(error.message);
     if (data) set((s) => ({ paymentMethods: [...s.paymentMethods, data as PaymentMethod] }));
+    get().computeSummary();
   },
 
   deletePaymentMethod: async (id) => {
     const { error } = await supabase.from('payment_methods').delete().eq('id', id);
     if (error) throw new Error(error.message);
     set((s) => ({ paymentMethods: s.paymentMethods.filter((p) => p.id !== id) }));
+    get().computeSummary();
+  },
+
+  addWalletTransfer: async (transfer) => {
+    const { data, error } = await supabase
+      .from('wallet_transfers')
+      .insert(transfer)
+      .select('*, from_payment_method:payment_methods!wallet_transfers_from_payment_method_id_fkey(*), to_payment_method:payment_methods!wallet_transfers_to_payment_method_id_fkey(*)')
+      .single();
+    if (error) throw new Error(error.message);
+    if (data) {
+      set((s) => ({ walletTransfers: [data as WalletTransfer, ...s.walletTransfers] }));
+      get().computeSummary();
+    }
   },
 
   // ---- Income Source CRUD ----
@@ -396,7 +492,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     get().computeSummary();
   },
 
-  payHutang: async (hutangId, userId, customAmount) => {
+  payHutang: async (hutangId, userId, customAmount, paymentMethodId) => {
     const hutang = get().hutangList.find((h) => h.id === hutangId);
     if (!hutang) throw new Error('Hutang tidak ditemukan');
 
@@ -452,6 +548,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
         user_id: userId,
         type: 'expense',
         category_id: hutangCat!.id,
+        payment_method_id: paymentMethodId || null,
         amount: payment,
         date: todayStr,
         notes: `Bayar cicilan: ${hutang.name}`,

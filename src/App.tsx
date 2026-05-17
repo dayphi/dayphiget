@@ -15,6 +15,7 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { TransactionsPage } from '@/features/transactions/TransactionsPage';
 import { BudgetPage } from '@/features/budget/BudgetPage';
 import { HutangPage } from '@/features/hutang/HutangPage';
+import { WalletPage } from '@/features/wallet/WalletPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { OnboardingWizard } from '@/features/onboarding/OnboardingWizard';
 
@@ -78,6 +79,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="budget" element={<BudgetPage />} />
+          <Route path="wallet" element={<WalletPage />} />
           <Route path="hutang" element={<HutangPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
