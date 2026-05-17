@@ -12,9 +12,9 @@ export function QuickAddFab() {
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
-          'fixed bottom-28 right-5 z-20 flex h-14 w-14 items-center justify-center',
+          'fixed bottom-23 right-5 z-20 flex h-14 w-14 items-center justify-center',
           'rounded-full gradient-primary shadow-xl shadow-primary-600/30',
-          'transition-all duration-300 hover:shadow-primary-600/50 hover:scale-105',
+          'opacity-80 transition-all duration-300 hover:scale-105 hover:opacity-100 hover:shadow-primary-600/50',
           'active:scale-95 animate-pulse-glow'
         )}
         aria-label="Tambah transaksi"

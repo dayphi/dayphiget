@@ -83,7 +83,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-dvh flex-col bg-surface-950">
       {/* Top Header */}
-      <header className="glass sticky top-0 z-30 flex items-center justify-between px-4 py-3">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-surface-700/70 bg-surface-900 px-4 py-3 shadow-lg shadow-black/20">
         <h1 className="text-lg font-bold text-gradient">{APP_NAME}</h1>
         <div className="flex items-center gap-2">
           <button
