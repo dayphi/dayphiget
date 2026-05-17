@@ -6,11 +6,7 @@ import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
 
-interface Props {
-  onClose: () => void;
-}
-
-export function ManageIncomeSheet(_props: Props) {
+export function ManageIncomeSheet() {
   const user = useAuthStore((s) => s.user);
   const { incomeSources, addIncomeSource, deleteIncomeSource } = useBudgetStore();
 

@@ -1,5 +1,3 @@
-import { useState, useEffect } from 'react';
-
 interface Props {
   value: string;
   onChange: (raw: string) => void;
@@ -21,16 +19,11 @@ function stripDots(val: string): string {
 }
 
 export function RupiahInput({ value, onChange, placeholder = '0', required, className, autoFocus, onKeyDown }: Props) {
-  const [display, setDisplay] = useState(() => formatDots(value));
-
-  useEffect(() => {
-    setDisplay(formatDots(value));
-  }, [value]);
+  const display = formatDots(value);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = stripDots(e.target.value);
     if (raw === '' || /^\d+$/.test(raw)) {
-      setDisplay(formatDots(raw));
       onChange(raw);
     }
   };

@@ -8,6 +8,9 @@ import {
   Settings,
   Bell,
   LogOut,
+  Moon,
+  Sun,
+  Monitor,
   X,
 } from 'lucide-react';
 import { cn, formatRupiah } from '@/lib/utils';
@@ -26,9 +29,17 @@ const navItems = [
 export function AppLayout() {
   const location = useLocation();
   const signOut = useAuthStore((s) => s.signOut);
+  const updateProfile = useAuthStore((s) => s.updateProfile);
   const profile = useAuthStore((s) => s.profile);
   const { summary, hutangList } = useBudgetStore();
   const [showAlerts, setShowAlerts] = useState(false);
+  const theme = profile?.theme || 'dark';
+  const ThemeIcon = theme === 'light' ? Sun : theme === 'system' ? Monitor : Moon;
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
+    updateProfile({ theme: nextTheme });
+  };
 
   const alerts = useMemo(() => {
     const list: { id: string; message: string; severity: 'info' | 'warning' | 'danger' }[] = [];
@@ -75,6 +86,14 @@ export function AppLayout() {
       <header className="glass sticky top-0 z-30 flex items-center justify-between px-4 py-3">
         <h1 className="text-lg font-bold text-gradient">{APP_NAME}</h1>
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="rounded-lg p-2 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-200"
+            aria-label={`Tema ${theme}`}
+            title={`Tema: ${theme === 'dark' ? 'Gelap' : theme === 'light' ? 'Terang' : 'Sistem'}`}
+          >
+            <ThemeIcon size={20} />
+          </button>
           <button
             onClick={() => setShowAlerts(!showAlerts)}
             className="relative rounded-lg p-2 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-200"

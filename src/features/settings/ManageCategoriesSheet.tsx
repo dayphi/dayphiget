@@ -7,11 +7,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { CategoryType } from '@/types';
 
-interface Props {
-  onClose: () => void;
-}
-
-export function ManageCategoriesSheet(_props: Props) {
+export function ManageCategoriesSheet() {
   const user = useAuthStore((s) => s.user);
   const { categories, addCategory, deleteCategory } = useBudgetStore();
 

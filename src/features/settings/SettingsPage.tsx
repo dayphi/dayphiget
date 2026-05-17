@@ -4,8 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { supabase } from '@/lib/supabase';
 import { APP_NAME, APP_VERSION } from '@/lib/constants';
-import { Moon, Sun, Monitor, Download, Trash2, LogOut, ChevronRight, X, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Download, Trash2, LogOut, ChevronRight, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ManageCategoriesSheet } from './ManageCategoriesSheet';
 import { ManagePaymentMethodsSheet } from './ManagePaymentMethodsSheet';
@@ -16,17 +15,10 @@ type SheetType = 'categories' | 'payment' | 'income' | 'alerts' | null;
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { user, profile, updateProfile, signOut } = useAuthStore();
+  const { user, profile, signOut } = useAuthStore();
   const { transactions } = useBudgetStore();
-  const theme = profile?.theme || 'dark';
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [resetting, setResetting] = useState(false);
-
-  const themeOptions = [
-    { value: 'light', icon: Sun, label: 'Light' },
-    { value: 'dark', icon: Moon, label: 'Dark' },
-    { value: 'system', icon: Monitor, label: 'System' },
-  ] as const;
 
   const menuItems: { key: SheetType; label: string; desc: string; icon: string; path?: string }[] = [
     { key: 'categories', label: 'Kategori', desc: 'Kelola kategori pengeluaran', icon: '📂' },
@@ -105,11 +97,11 @@ export function SettingsPage() {
   const renderSheet = () => {
     switch (activeSheet) {
       case 'categories':
-        return <ManageCategoriesSheet onClose={() => setActiveSheet(null)} />;
+        return <ManageCategoriesSheet />;
       case 'payment':
-        return <ManagePaymentMethodsSheet onClose={() => setActiveSheet(null)} />;
+        return <ManagePaymentMethodsSheet />;
       case 'income':
-        return <ManageIncomeSheet onClose={() => setActiveSheet(null)} />;
+        return <ManageIncomeSheet />;
       case 'alerts':
         return <AlertSettingsSheet onClose={() => setActiveSheet(null)} />;
       default:
@@ -131,28 +123,6 @@ export function SettingsPage() {
             <p className="font-semibold text-surface-100">{profile?.display_name || 'User'}</p>
             <p className="text-xs text-surface-400">{profile?.currency || 'IDR'}</p>
           </div>
-        </div>
-      </div>
-
-      {/* Theme */}
-      <div className="glass-card p-4">
-        <p className="mb-3 text-sm font-medium text-surface-300">Tema</p>
-        <div className="flex gap-2">
-          {themeOptions.map(({ value, icon: Icon, label }) => (
-            <button
-              key={value}
-              onClick={() => updateProfile({ theme: value })}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-medium transition-all',
-                theme === value
-                  ? 'border-primary-500 bg-primary-500/10 text-primary-400'
-                  : 'border-surface-700/50 text-surface-400 hover:border-surface-600'
-              )}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
         </div>
       </div>
 

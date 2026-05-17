@@ -12,11 +12,7 @@ const ICON_OPTIONS = [
   '🏪', '💸', '🤑', '🪪', '📡', '⚡',
 ];
 
-interface Props {
-  onClose: () => void;
-}
-
-export function ManagePaymentMethodsSheet(_props: Props) {
+export function ManagePaymentMethodsSheet() {
   const user = useAuthStore((s) => s.user);
   const { paymentMethods, addPaymentMethod, deletePaymentMethod } = useBudgetStore();
 

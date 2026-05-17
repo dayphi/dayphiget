@@ -20,7 +20,7 @@ export function AddTransactionSheet({ onClose }: Props) {
   useEffect(() => {
     if (user && categories.length === 0) fetchCategories(user.id);
     if (user && paymentMethods.length === 0) fetchPaymentMethods(user.id);
-  }, [user]);
+  }, [user, categories.length, paymentMethods.length, fetchCategories, fetchPaymentMethods]);
 
   const [type, setType] = useState<TransactionType>('expense');
   const [categoryId, setCategoryId] = useState('');
