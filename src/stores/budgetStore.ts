@@ -57,6 +57,8 @@ interface BudgetState {
   addPaymentMethod: (pm: Partial<PaymentMethod>) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
   addWalletTransfer: (transfer: Partial<WalletTransfer>) => Promise<void>;
+  updateWalletTransfer: (id: string, transfer: Partial<WalletTransfer>) => Promise<void>;
+  deleteWalletTransfer: (id: string) => Promise<void>;
 
   // Income Source CRUD
   addIncomeSource: (s: Partial<IncomeSource>) => Promise<void>;
@@ -427,6 +429,31 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       set((s) => ({ walletTransfers: [data as WalletTransfer, ...s.walletTransfers] }));
       get().computeSummary();
     }
+  },
+
+  updateWalletTransfer: async (id, transfer) => {
+    const { data, error } = await supabase
+      .from('wallet_transfers')
+      .update(transfer)
+      .eq('id', id)
+      .select('*, from_payment_method:payment_methods!wallet_transfers_from_payment_method_id_fkey(*), to_payment_method:payment_methods!wallet_transfers_to_payment_method_id_fkey(*)')
+      .single();
+    if (error) throw new Error(error.message);
+    if (data) {
+      set((s) => ({
+        walletTransfers: s.walletTransfers.map((t) => t.id === id ? (data as WalletTransfer) : t),
+      }));
+      get().computeSummary();
+    }
+  },
+
+  deleteWalletTransfer: async (id) => {
+    const { error } = await supabase.from('wallet_transfers').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((s) => ({
+      walletTransfers: s.walletTransfers.filter((t) => t.id !== id),
+    }));
+    get().computeSummary();
   },
 
   // ---- Income Source CRUD ----
