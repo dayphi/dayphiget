@@ -33,8 +33,15 @@ export default function App() {
       <Toaster
         position="top-center"
         toastOptions={{
-          className: 'glass-card !border-surface-700/50 !text-surface-100',
+          className: '!border-surface-700/50 !text-surface-100',
           duration: 3000,
+          style: {
+            background: 'var(--color-surface-800)',
+            border: '1px solid var(--color-surface-700)',
+            borderRadius: 'var(--radius-xl)',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+          },
         }}
         richColors
       />
