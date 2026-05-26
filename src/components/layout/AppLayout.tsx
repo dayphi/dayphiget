@@ -116,7 +116,7 @@ export function AppLayout() {
       {showAlerts && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setShowAlerts(false)} />
-          <div className="fixed top-14 right-3 z-40 w-80 glass-card animate-slide-down overflow-hidden">
+          <div className="fixed top-14 right-3 z-40 w-80 bg-surface-800 border border-surface-700 rounded-xl shadow-xl shadow-black/40 animate-slide-down overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-surface-700/50">
               <p className="text-sm font-semibold text-surface-200">Notifikasi</p>
               <button onClick={() => setShowAlerts(false)} className="text-surface-500 hover:text-surface-300">
