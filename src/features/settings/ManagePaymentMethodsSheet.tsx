@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
-import { Trash2, Plus, Loader2, X } from 'lucide-react';
+import { Trash2, Plus, Loader2, X, Pencil, Check } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { formatRupiah } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -15,24 +15,25 @@ const ICON_OPTIONS = [
 
 export function ManagePaymentMethodsSheet() {
   const user = useAuthStore((s) => s.user);
-  const { paymentMethods, addPaymentMethod, deletePaymentMethod } = useBudgetStore();
+  const { paymentMethods, addPaymentMethod, updatePaymentMethod, deletePaymentMethod } = useBudgetStore();
 
   const [name, setName] = useState('');
   const [initialBalance, setInitialBalance] = useState('');
   const [icon, setIcon] = useState('💳');
   const [adding, setAdding] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
 
   // Auto-detect bank/ewallet from name
   useEffect(() => {
-    if (name.trim()) {
+    if (name.trim() && !editingId) {
       const autoIcon = getAutoPaymentIcon(name);
       if (autoIcon) {
         setIcon(autoIcon);
       }
     }
-  }, [name]);
+  }, [name, editingId]);
 
   const handleAdd = async () => {
     if (!user || !name.trim()) return;
@@ -46,6 +47,7 @@ export function ManagePaymentMethodsSheet() {
       });
       setName('');
       setInitialBalance('');
+      setIcon('💳');
       toast.success('Metode pembayaran ditambahkan');
     } catch {
       toast.error('Gagal menambahkan');
@@ -54,11 +56,49 @@ export function ManagePaymentMethodsSheet() {
     }
   };
 
+  const handleSave = async () => {
+    if (!user || !editingId || !name.trim()) return;
+    setAdding(true);
+    try {
+      await updatePaymentMethod(editingId, {
+        name: name.trim(),
+        icon,
+        initial_balance: parseFloat(initialBalance) || 0,
+      });
+      setName('');
+      setInitialBalance('');
+      setIcon('💳');
+      setEditingId(null);
+      toast.success('Metode pembayaran diperbarui');
+    } catch {
+      toast.error('Gagal memperbarui');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const startEdit = (pm: any) => {
+    setEditingId(pm.id);
+    setName(pm.name);
+    setIcon(pm.icon || '💳');
+    setInitialBalance(String(pm.initial_balance || 0));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setName('');
+    setIcon('💳');
+    setInitialBalance('');
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Hapus metode ini?')) return;
     try {
       await deletePaymentMethod(id);
       toast.success('Metode dihapus');
+      if (editingId === id) {
+        cancelEdit();
+      }
     } catch {
       toast.error('Gagal menghapus');
     }
@@ -66,7 +106,7 @@ export function ManagePaymentMethodsSheet() {
 
   return (
     <div className="flex flex-col gap-4 px-5 pb-8 pt-2">
-      {/* Add form */}
+      {/* Add/Edit form */}
       <div className="flex gap-2">
         <button
           type="button"
@@ -80,16 +120,37 @@ export function ManagePaymentMethodsSheet() {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Nama metode baru"
+          placeholder={editingId ? "Nama metode" : "Nama metode baru"}
           className="flex-1 rounded-xl border border-surface-700 bg-surface-800/50 px-4 py-2.5 text-sm text-surface-100 placeholder:text-surface-500 outline-none focus:border-primary-500"
         />
-        <button
-          onClick={handleAdd}
-          disabled={adding || !name.trim()}
-          className="flex items-center gap-1.5 rounded-xl gradient-primary px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
-        >
-          {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-        </button>
+        {editingId ? (
+          <div className="flex gap-1">
+            <button
+              onClick={handleSave}
+              disabled={adding || !name.trim()}
+              className="flex items-center justify-center rounded-xl bg-success-600/20 border border-success-500/30 text-success-400 px-3.5 py-2.5 text-xs font-semibold hover:bg-success-600/30 disabled:opacity-40 transition-all"
+              title="Simpan Perubahan"
+            >
+              {adding ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="flex items-center justify-center rounded-xl border border-surface-700 bg-surface-800/50 text-surface-400 px-3.5 py-2.5 text-xs font-semibold hover:bg-surface-700/50 transition-all"
+              title="Batal Edit"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleAdd}
+            disabled={adding || !name.trim()}
+            className="flex items-center justify-center rounded-xl gradient-primary px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40 transition-all"
+            title="Tambah Metode"
+          >
+            {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -97,7 +158,7 @@ export function ManagePaymentMethodsSheet() {
         <RupiahInput
           value={initialBalance}
           onChange={setInitialBalance}
-          placeholder="Saldo awal wallet"
+          placeholder={editingId ? "Saldo awal wallet" : "Saldo awal wallet"}
           className="w-full rounded-xl border border-surface-700 bg-surface-800/50 py-2.5 pl-10 pr-4 text-sm tabular-nums text-surface-100 placeholder:text-surface-500 outline-none focus:border-primary-500"
         />
       </div>
@@ -111,12 +172,26 @@ export function ManagePaymentMethodsSheet() {
               <p className="text-sm text-surface-200 truncate">{pm.name}</p>
               <p className="text-xs text-surface-500">Saldo awal {formatRupiah(Number(pm.initial_balance || 0))}</p>
             </div>
-            <button
-              onClick={() => handleDelete(pm.id)}
-              className="rounded-lg p-1.5 text-surface-500 hover:text-danger-400 hover:bg-danger-500/10 transition-all"
-            >
-              <Trash2 size={14} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => startEdit(pm)}
+                className={`rounded-lg p-1.5 transition-all ${
+                  editingId === pm.id
+                    ? 'text-primary-400 bg-primary-500/10'
+                    : 'text-surface-500 hover:text-primary-400 hover:bg-primary-500/10'
+                }`}
+                title="Edit Metode"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => handleDelete(pm.id)}
+                className="rounded-lg p-1.5 text-surface-500 hover:text-danger-400 hover:bg-danger-500/10 transition-all"
+                title="Hapus Metode"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         ))}
         {paymentMethods.length === 0 && (

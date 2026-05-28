@@ -55,6 +55,7 @@ interface BudgetState {
 
   // Payment Method CRUD
   addPaymentMethod: (pm: Partial<PaymentMethod>) => Promise<void>;
+  updatePaymentMethod: (id: string, pm: Partial<PaymentMethod>) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
   addWalletTransfer: (transfer: Partial<WalletTransfer>) => Promise<void>;
   updateWalletTransfer: (id: string, transfer: Partial<WalletTransfer>) => Promise<void>;
@@ -409,6 +410,17 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     if (error) throw new Error(error.message);
     if (data) set((s) => ({ paymentMethods: [...s.paymentMethods, data as PaymentMethod] }));
     get().computeSummary();
+  },
+
+  updatePaymentMethod: async (id, pm) => {
+    const { data, error } = await supabase.from('payment_methods').update(pm).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    if (data) {
+      set((s) => ({
+        paymentMethods: s.paymentMethods.map((p) => p.id === id ? (data as PaymentMethod) : p)
+      }));
+      get().computeSummary();
+    }
   },
 
   deletePaymentMethod: async (id) => {
