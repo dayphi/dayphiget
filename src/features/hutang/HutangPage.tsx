@@ -1,21 +1,17 @@
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/stores/authStore';
+import { useState } from 'react';
+
 import { useBudgetStore } from '@/stores/budgetStore';
 import { formatRupiah, calcPercent, cn } from '@/lib/utils';
-import { Loader2, Plus, X, Pencil } from 'lucide-react';
+import { Loader2, Plus, Pencil } from 'lucide-react';
 import { AddHutangSheet } from './AddHutangSheet';
 import { EditHutangSheet } from './EditHutangSheet';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { Hutang } from '@/types';
 
 export function HutangPage() {
-  const user = useAuthStore((s) => s.user);
-  const { hutangList, isLoading, fetchAll } = useBudgetStore();
+  const { hutangList, isLoading } = useBudgetStore();
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<Hutang | null>(null);
-
-  useEffect(() => {
-    if (user) fetchAll(user.id);
-  }, [user, fetchAll]);
 
   const totalDebt = hutangList.reduce((s, h) => s + Number(h.remaining), 0);
   const totalMonthly = hutangList.reduce((s, h) => s + Number(h.monthly_payment), 0);
@@ -106,38 +102,21 @@ export function HutangPage() {
         </div>
       )}
       {/* Add Hutang Bottom Sheet */}
-      {showAdd && (
-        <>
-          <div className="bottom-sheet-overlay" onClick={() => setShowAdd(false)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-surface-900 border-t border-surface-700/50 animate-slide-up safe-bottom">
-            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-surface-600" />
-            <div className="flex items-center justify-between px-5 pt-4 pb-2">
-              <h2 className="text-lg font-bold text-surface-100">Tambah Hutang</h2>
-              <button onClick={() => setShowAdd(false)} className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-800 hover:text-surface-200 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            <AddHutangSheet onClose={() => setShowAdd(false)} />
-          </div>
-        </>
-      )}
+      <BottomSheet
+        title="Tambah Hutang"
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+      >
+        <AddHutangSheet onClose={() => setShowAdd(false)} />
+      </BottomSheet>
 
-      {/* Edit Hutang Bottom Sheet */}
-      {editItem && (
-        <>
-          <div className="bottom-sheet-overlay" onClick={() => setEditItem(null)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-surface-900 border-t border-surface-700/50 animate-slide-up safe-bottom">
-            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-surface-600" />
-            <div className="flex items-center justify-between px-5 pt-4 pb-2">
-              <h2 className="text-lg font-bold text-surface-100">Edit Hutang</h2>
-              <button onClick={() => setEditItem(null)} className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-800 hover:text-surface-200 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            <EditHutangSheet hutang={editItem} onClose={() => setEditItem(null)} />
-          </div>
-        </>
-      )}
+      <BottomSheet
+        title="Edit Hutang"
+        isOpen={!!editItem}
+        onClose={() => setEditItem(null)}
+      >
+        {editItem && <EditHutangSheet hutang={editItem} onClose={() => setEditItem(null)} />}
+      </BottomSheet>
     </div>
   );
 }

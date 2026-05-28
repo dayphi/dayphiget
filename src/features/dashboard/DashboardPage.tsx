@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { SummaryCards } from './SummaryCards';
@@ -13,13 +13,7 @@ import { cn, formatRupiah } from '@/lib/utils';
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
-  const { isLoading, fetchAll, summary } = useBudgetStore();
-
-  useEffect(() => {
-    if (user) {
-      fetchAll(user.id);
-    }
-  }, [user, fetchAll]);
+  const { isLoading, summary } = useBudgetStore();
 
   if (isLoading) {
     return (

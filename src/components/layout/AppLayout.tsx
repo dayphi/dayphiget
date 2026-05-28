@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router';
 import {
   Home,
@@ -30,11 +30,18 @@ export function AppLayout() {
   const location = useLocation();
   const signOut = useAuthStore((s) => s.signOut);
   const updateProfile = useAuthStore((s) => s.updateProfile);
+  const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
-  const { summary, hutangList } = useBudgetStore();
+  const { summary, hutangList, fetchAll } = useBudgetStore();
   const [showAlerts, setShowAlerts] = useState(false);
   const theme = profile?.theme || 'dark';
   const ThemeIcon = theme === 'light' ? Sun : theme === 'system' ? Monitor : Moon;
+
+  useEffect(() => {
+    if (user) {
+      fetchAll(user.id);
+    }
+  }, [user, fetchAll]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';

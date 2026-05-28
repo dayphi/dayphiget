@@ -4,8 +4,9 @@ import { useBudgetStore } from '@/stores/budgetStore';
 import { Trash2, Plus, Loader2, X, Pencil, Check } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { formatRupiah } from '@/lib/utils';
-import { toast } from 'sonner';
 import { PaymentIcon, getAutoPaymentIcon, BANK_LOGOS } from '@/components/ui/PaymentIcon';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 const ICON_OPTIONS = [
   '💵', '💳', '🏦', '📱', '💰', '🪙',
@@ -91,17 +92,20 @@ export function ManagePaymentMethodsSheet() {
     setInitialBalance('');
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus metode ini?')) return;
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
     try {
-      await deletePaymentMethod(id);
+      await deletePaymentMethod(deletingId);
       toast.success('Metode dihapus');
-      if (editingId === id) {
+      if (editingId === deletingId) {
         cancelEdit();
       }
     } catch {
       toast.error('Gagal menghapus');
     }
+    setDeletingId(null);
   };
 
   return (
@@ -185,7 +189,7 @@ export function ManagePaymentMethodsSheet() {
                 <Pencil size={14} />
               </button>
               <button
-                onClick={() => handleDelete(pm.id)}
+                onClick={() => setDeletingId(pm.id)}
                 className="rounded-lg p-1.5 text-surface-500 hover:text-danger-400 hover:bg-danger-500/10 transition-all"
                 title="Hapus Metode"
               >
@@ -200,78 +204,75 @@ export function ManagePaymentMethodsSheet() {
       </div>
 
       {/* Icon Picker Pop-up */}
-      {showIconPicker && (
-        <>
-          <div className="bottom-sheet-overlay" onClick={() => setShowIconPicker(false)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-3xl border-t border-surface-700/50 bg-surface-900 animate-slide-up safe-bottom">
-            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-surface-600" />
-            <div className="flex items-center justify-between px-5 pb-2 pt-4">
-              <h2 className="text-lg font-bold text-surface-100">Pilih Ikon</h2>
-              <button
-                type="button"
-                onClick={() => setShowIconPicker(false)}
-                className="rounded-lg p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-200"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="flex flex-col gap-5 p-5">
-              {/* E-Wallet & Bank Logos */}
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium text-surface-400">Bank & E-Wallet</span>
-                <div className="grid grid-cols-4 gap-2">
-                  {Object.keys(BANK_LOGOS).map((bankKey) => {
-                    const bankIconVal = `bank:${bankKey}`;
-                    return (
-                      <button
-                        key={bankKey}
-                        type="button"
-                        onClick={() => {
-                          setIcon(bankIconVal);
-                          setShowIconPicker(false);
-                        }}
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
-                          icon === bankIconVal
-                            ? 'border-primary-500 bg-primary-500/10'
-                            : 'border-surface-800 bg-surface-800/30 hover:bg-surface-800/60'
-                        }`}
-                      >
-                        <PaymentIcon icon={bankIconVal} className="w-8 h-8 mb-1" />
-                        <span className="text-[10px] text-surface-400 capitalize">{bankKey}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Standard Emojis */}
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium text-surface-400">Ikon Standar</span>
-                <div className="grid grid-cols-6 gap-2">
-                  {ICON_OPTIONS.map((ic) => (
-                    <button
-                      key={ic}
-                      type="button"
-                      onClick={() => {
-                        setIcon(ic);
-                        setShowIconPicker(false);
-                      }}
-                      className={`flex h-12 w-12 items-center justify-center rounded-xl border text-xl transition-all ${
-                        icon === ic
-                          ? 'border-primary-500 bg-primary-500/10'
-                          : 'border-surface-800 bg-surface-800/30 hover:bg-surface-800/60'
-                      }`}
-                    >
-                      <PaymentIcon icon={ic} className="w-6 h-6" fallbackClassName="text-xl" />
-                    </button>
-                  ))}
-                </div>
-              </div>
+      <BottomSheet
+        title="Pilih Ikon"
+        isOpen={showIconPicker}
+        onClose={() => setShowIconPicker(false)}
+        maxHeight="max-h-[80dvh]"
+      >
+        <div className="flex flex-col gap-5 p-5">
+          {/* E-Wallet & Bank Logos */}
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-surface-400">Bank & E-Wallet</span>
+            <div className="grid grid-cols-4 gap-2">
+              {Object.keys(BANK_LOGOS).map((bankKey) => {
+                const bankIconVal = `bank:${bankKey}`;
+                return (
+                  <button
+                    key={bankKey}
+                    type="button"
+                    onClick={() => {
+                      setIcon(bankIconVal);
+                      setShowIconPicker(false);
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                      icon === bankIconVal
+                        ? 'border-primary-500 bg-primary-500/10'
+                        : 'border-surface-800 bg-surface-800/30 hover:bg-surface-800/60'
+                    }`}
+                  >
+                    <PaymentIcon icon={bankIconVal} className="w-8 h-8 mb-1" />
+                    <span className="text-[10px] text-surface-400 capitalize">{bankKey}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </>
-      )}
+
+          {/* Standard Emojis */}
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-surface-400">Ikon Standar</span>
+            <div className="grid grid-cols-6 gap-2">
+              {ICON_OPTIONS.map((ic) => (
+                <button
+                  key={ic}
+                  type="button"
+                  onClick={() => {
+                    setIcon(ic);
+                    setShowIconPicker(false);
+                  }}
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl border text-xl transition-all ${
+                    icon === ic
+                      ? 'border-primary-500 bg-primary-500/10'
+                      : 'border-surface-800 bg-surface-800/30 hover:bg-surface-800/60'
+                  }`}
+                >
+                  <PaymentIcon icon={ic} className="w-6 h-6" fallbackClassName="text-xl" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </BottomSheet>
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDelete}
+        title="Hapus Metode Pembayaran"
+        description="Apakah Anda yakin ingin menghapus metode pembayaran ini? Pastikan tidak ada transaksi yang terkait dengan metode ini."
+        confirmText="Hapus Metode"
+      />
     </div>
   );
 }

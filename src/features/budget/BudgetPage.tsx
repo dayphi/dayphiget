@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { formatRupiah, calcPercent, cn } from '@/lib/utils';
@@ -10,14 +10,10 @@ import type { CategoryType } from '@/types';
 
 export function BudgetPage() {
   const user = useAuthStore((s) => s.user);
-  const { categories, transactions, budgetItems, isLoading, fetchAll, summary, setBudgetItem } = useBudgetStore();
+  const { categories, transactions, budgetItems, isLoading, summary, setBudgetItem } = useBudgetStore();
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (user) fetchAll(user.id);
-  }, [user, fetchAll]);
 
   const expensesByCat = transactions
     .filter((t) => t.type === 'expense')

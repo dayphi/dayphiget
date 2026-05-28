@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/stores/authStore';
+import { useState } from 'react';
+
 import { useBudgetStore } from '@/stores/budgetStore';
 import { formatRupiah, formatDate, cn } from '@/lib/utils';
 import { Search, Trash2, Pencil, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
@@ -7,20 +7,16 @@ import { toast } from 'sonner';
 import { EditTransactionSheet } from './EditTransactionSheet';
 import type { Transaction } from '@/types';
 import { PaymentIcon } from '@/components/ui/PaymentIcon';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export function TransactionsPage() {
-  const user = useAuthStore((s) => s.user);
-  const { transactions, categories, isLoading, fetchAll, deleteTransaction } = useBudgetStore();
+  const { transactions, categories, isLoading, deleteTransaction } = useBudgetStore();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (user) fetchAll(user.id);
-  }, [user, fetchAll]);
 
   const filtered = transactions.filter((tx) => {
     if (filterType !== 'all' && tx.type !== filterType) return false;
@@ -35,11 +31,18 @@ export function TransactionsPage() {
     return true;
   });
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus transaksi ini?')) return;
-    await deleteTransaction(id);
-    setExpandedId(null);
-    toast.success('Transaksi dihapus');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    try {
+      await deleteTransaction(deletingId);
+      setExpandedId(null);
+      toast.success('Transaksi dihapus');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menghapus');
+    }
+    setDeletingId(null);
   };
 
   const handleEdit = (tx: Transaction) => {
@@ -230,7 +233,7 @@ export function TransactionsPage() {
                                       Edit
                                     </button>
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); handleDelete(tx.id); }}
+                                      onClick={(e) => { e.stopPropagation(); setDeletingId(tx.id); }}
                                       className="flex items-center gap-1.5 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-1.5 text-xs font-medium text-danger-400 transition-all hover:bg-danger-500/20"
                                     >
                                       <Trash2 size={12} />
@@ -252,13 +255,21 @@ export function TransactionsPage() {
         </div>
       )}
 
-      {/* Edit Sheet */}
       {editingTx && (
         <EditTransactionSheet
           transaction={editingTx}
           onClose={() => setEditingTx(null)}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDelete}
+        title="Hapus Transaksi"
+        description="Apakah Anda yakin ingin menghapus transaksi ini? Saldo wallet akan dikembalikan seperti sebelum transaksi ini terjadi."
+        confirmText="Hapus Transaksi"
+      />
     </div>
   );
 }
