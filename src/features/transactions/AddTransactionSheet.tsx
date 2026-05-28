@@ -6,6 +6,8 @@ import { Loader2 } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
 import type { TransactionType } from '@/types';
+import { PaymentIcon } from '@/components/ui/PaymentIcon';
+
 
 interface Props {
   onClose: () => void;
@@ -249,13 +251,13 @@ export function AddTransactionSheet({ onClose }: Props) {
                   setPaymentMethodId(paymentMethodId === pm.id ? '' : pm.id)
                 }
                 className={cn(
-                  'rounded-lg border px-3 py-2 text-xs transition-all',
+                  'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-all',
                   paymentMethodId === pm.id
                     ? 'border-primary-500 bg-primary-500/10 text-primary-300'
                     : 'border-surface-700/50 text-surface-400 hover:border-surface-600'
                 )}
               >
-                {pm.icon} {pm.name}
+                <PaymentIcon icon={pm.icon} className="w-3.5 h-3.5" fallbackClassName="text-sm" /> {pm.name}
               </button>
             ))}
           </div>

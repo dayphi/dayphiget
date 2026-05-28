@@ -6,6 +6,7 @@ import { Search, Trash2, Pencil, Loader2, ChevronDown, ChevronRight } from 'luci
 import { toast } from 'sonner';
 import { EditTransactionSheet } from './EditTransactionSheet';
 import type { Transaction } from '@/types';
+import { PaymentIcon } from '@/components/ui/PaymentIcon';
 
 export function TransactionsPage() {
   const user = useAuthStore((s) => s.user);
@@ -215,8 +216,9 @@ export function TransactionsPage() {
                                 {isExpanded && (
                                   <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-800/20 animate-fade-in">
                                     {tx.payment_method && (
-                                      <span className="mr-auto text-xs text-surface-500">
-                                        {tx.payment_method.icon} {tx.payment_method.name}
+                                      <span className="mr-auto flex items-center gap-1.5 text-xs text-surface-500">
+                                        <PaymentIcon icon={tx.payment_method.icon} className="w-3.5 h-3.5" fallbackClassName="text-sm" />
+                                        {tx.payment_method.name}
                                       </span>
                                     )}
                                     {!tx.payment_method && <span className="mr-auto" />}

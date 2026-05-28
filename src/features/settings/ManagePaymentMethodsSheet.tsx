@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { formatRupiah } from '@/lib/utils';
 import { toast } from 'sonner';
+import { PaymentIcon, getAutoPaymentIcon } from '@/components/ui/PaymentIcon';
 
 const ICON_OPTIONS = [
   '💵', '💳', '🏦', '📱', '💰', '🪙',
@@ -20,6 +21,16 @@ export function ManagePaymentMethodsSheet() {
   const [initialBalance, setInitialBalance] = useState('');
   const [icon, setIcon] = useState('💳');
   const [adding, setAdding] = useState(false);
+
+  // Auto-detect bank/ewallet from name
+  useEffect(() => {
+    if (name.trim()) {
+      const autoIcon = getAutoPaymentIcon(name);
+      if (autoIcon) {
+        setIcon(autoIcon);
+      }
+    }
+  }, [name]);
 
   const handleAdd = async () => {
     if (!user || !name.trim()) return;
@@ -68,7 +79,7 @@ export function ManagePaymentMethodsSheet() {
                   : 'bg-surface-800/50 hover:bg-surface-700/50'
               }`}
             >
-              {ic}
+              <PaymentIcon icon={ic} className="w-5 h-5" fallbackClassName="text-lg" />
             </button>
           ))}
         </div>
@@ -77,7 +88,7 @@ export function ManagePaymentMethodsSheet() {
       {/* Add form */}
       <div className="flex gap-2">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-surface-700 bg-surface-800/50 text-lg">
-          {icon}
+          <PaymentIcon icon={icon} className="w-6 h-6" fallbackClassName="text-lg" />
         </span>
         <input
           type="text"
@@ -109,7 +120,7 @@ export function ManagePaymentMethodsSheet() {
       <div className="glass-card divide-y divide-surface-800/50">
         {paymentMethods.map((pm) => (
           <div key={pm.id} className="flex items-center gap-3 px-4 py-3">
-            <span className="text-lg">{pm.icon || '💳'}</span>
+            <PaymentIcon icon={pm.icon} className="w-7 h-7" fallbackClassName="text-lg" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-surface-200 truncate">{pm.name}</p>
               <p className="text-xs text-surface-500">Saldo awal {formatRupiah(Number(pm.initial_balance || 0))}</p>
