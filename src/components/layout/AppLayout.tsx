@@ -91,9 +91,8 @@ export function AppLayout() {
     <div className="flex min-h-dvh flex-col bg-surface-950">
       {/* Top Header */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-surface-700/70 bg-surface-900 px-4 py-3 shadow-lg shadow-black/20">
-        <div className="flex items-center gap-2.5">
-          <img src="/logo.webp" alt="Dayphi Logo" className="h-7 w-7 rounded-lg object-cover shadow-sm" />
-          <h1 className="text-lg font-bold text-gradient">{APP_NAME}</h1>
+        <div className="flex items-center">
+          <img src="/logo.webp" alt="Dayphi Logo" className="h-10 w-auto rounded-lg object-contain shadow-sm" />
         </div>
         <div className="flex items-center gap-2">
           <button
