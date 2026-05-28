@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useBudgetStore } from '@/stores/budgetStore';
 import { formatRupiah, calcPercent, cn } from '@/lib/utils';
-import { Loader2, Plus, Pencil } from 'lucide-react';
+import { Loader2, Plus, Pencil, ChevronDown, ChevronRight } from 'lucide-react';
 import { AddHutangSheet } from './AddHutangSheet';
 import { EditHutangSheet } from './EditHutangSheet';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -12,9 +12,63 @@ export function HutangPage() {
   const { hutangList, isLoading } = useBudgetStore();
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<Hutang | null>(null);
+  const [showPaid, setShowPaid] = useState(false);
 
-  const totalDebt = hutangList.reduce((s, h) => s + Number(h.remaining), 0);
-  const totalMonthly = hutangList.reduce((s, h) => s + Number(h.monthly_payment), 0);
+  const activeHutang = hutangList.filter((h) => Number(h.remaining) > 0);
+  const paidHutang = hutangList.filter((h) => Number(h.remaining) <= 0);
+
+  const totalDebt = activeHutang.reduce((s, h) => s + Number(h.remaining), 0);
+  const totalMonthly = activeHutang.reduce((s, h) => s + Number(h.monthly_payment), 0);
+
+  const renderHutangCard = (h: Hutang) => {
+    const remaining = Number(h.remaining);
+    const total = Number(h.total_amount);
+    const monthly = Number(h.monthly_payment);
+    const paid = total - remaining;
+    const pct = calcPercent(paid, total);
+    const isLunas = remaining <= 0;
+    return (
+      <div key={h.id} className={cn('glass-card p-4', isLunas && 'opacity-70')}>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-surface-200">💳 {h.name}</h3>
+            {isLunas && (
+              <span className="rounded-full bg-success-500/20 px-2 py-0.5 text-xs font-semibold text-success-400">✓ Lunas</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setEditItem(h)}
+              className="rounded-lg p-1.5 text-surface-500 hover:text-primary-400 hover:bg-primary-500/10 transition-all"
+            >
+              <Pencil size={14} />
+            </button>
+            <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium',
+              h.priority === 1 ? 'bg-danger-500/20 text-danger-400' :
+              h.priority === 2 ? 'bg-warning-500/20 text-warning-400' :
+              'bg-surface-700/50 text-surface-400'
+            )}>P{h.priority}</span>
+          </div>
+        </div>
+        <div className={cn('mb-2 grid gap-2 text-xs', monthly > 0 ? 'grid-cols-4' : 'grid-cols-3')}>
+          <div><span className="text-surface-500">Sisa</span><p className="font-medium text-surface-200 tabular-nums">{formatRupiah(remaining)}</p></div>
+          {monthly > 0 && <div><span className="text-surface-500">Cicilan</span><p className="font-medium text-surface-200 tabular-nums">{formatRupiah(monthly)}</p></div>}
+          <div><span className="text-surface-500">Tenor</span><p className="font-medium text-surface-200">{monthly > 0 && remaining > 0 ? `${Math.ceil(remaining / monthly)} bln` : isLunas ? 'Selesai' : 'Fleksibel'}</p></div>
+          <div><span className="text-surface-500">Bunga</span><p className="font-medium text-surface-200">{h.interest_rate}%</p></div>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-800">
+          <div className={cn('h-full rounded-full transition-all duration-500', isLunas ? 'bg-success-500' : 'bg-primary-500')} style={{ width: `${pct}%` }} />
+        </div>
+        <div className="mt-1 flex justify-between text-xs text-surface-500">
+          <span>{pct}% lunas</span>
+          {h.due_day && <span>Jatuh tempo: tgl {h.due_day}</span>}
+        </div>
+        {isLunas && (
+          <p className="mt-3 text-center text-xs font-medium text-success-400">🎉 Hutang ini sudah lunas!</p>
+        )}
+      </div>
+    );
+  };
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary-500" /></div>;
 
@@ -49,56 +103,31 @@ export function HutangPage() {
           <p className="text-sm text-surface-400">Tidak ada hutang! Keren!</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {hutangList.map((h) => {
-            const remaining = Number(h.remaining);
-            const total = Number(h.total_amount);
-            const monthly = Number(h.monthly_payment);
-            const paid = total - remaining;
-            const pct = calcPercent(paid, total);
-            const isLunas = remaining <= 0;
-            return (
-              <div key={h.id} className={cn('glass-card p-4', isLunas && 'opacity-70')}>
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-surface-200">💳 {h.name}</h3>
-                    {isLunas && (
-                      <span className="rounded-full bg-success-500/20 px-2 py-0.5 text-xs font-semibold text-success-400">✓ Lunas</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setEditItem(h)}
-                      className="rounded-lg p-1.5 text-surface-500 hover:text-primary-400 hover:bg-primary-500/10 transition-all"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium',
-                      h.priority === 1 ? 'bg-danger-500/20 text-danger-400' :
-                      h.priority === 2 ? 'bg-warning-500/20 text-warning-400' :
-                      'bg-surface-700/50 text-surface-400'
-                    )}>P{h.priority}</span>
-                  </div>
+        <div className="flex flex-col gap-6">
+          {activeHutang.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wide px-1">Belum Lunas</h3>
+              {activeHutang.map(renderHutangCard)}
+            </div>
+          )}
+
+          {paidHutang.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setShowPaid(!showPaid)}
+                className="flex items-center gap-2 text-sm font-semibold text-surface-400 hover:text-surface-300 transition-colors px-1"
+              >
+                {showPaid ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                Sudah Lunas ({paidHutang.length})
+              </button>
+              
+              {showPaid && (
+                <div className="flex flex-col gap-3 animate-fade-in">
+                  {paidHutang.map(renderHutangCard)}
                 </div>
-                <div className={cn('mb-2 grid gap-2 text-xs', monthly > 0 ? 'grid-cols-4' : 'grid-cols-3')}>
-                  <div><span className="text-surface-500">Sisa</span><p className="font-medium text-surface-200 tabular-nums">{formatRupiah(remaining)}</p></div>
-                  {monthly > 0 && <div><span className="text-surface-500">Cicilan</span><p className="font-medium text-surface-200 tabular-nums">{formatRupiah(monthly)}</p></div>}
-                  <div><span className="text-surface-500">Tenor</span><p className="font-medium text-surface-200">{monthly > 0 && remaining > 0 ? `${Math.ceil(remaining / monthly)} bln` : isLunas ? 'Selesai' : 'Fleksibel'}</p></div>
-                  <div><span className="text-surface-500">Bunga</span><p className="font-medium text-surface-200">{h.interest_rate}%</p></div>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-surface-800">
-                  <div className={cn('h-full rounded-full transition-all duration-500', isLunas ? 'bg-success-500' : 'bg-primary-500')} style={{ width: `${pct}%` }} />
-                </div>
-                <div className="mt-1 flex justify-between text-xs text-surface-500">
-                  <span>{pct}% lunas</span>
-                  {h.due_day && <span>Jatuh tempo: tgl {h.due_day}</span>}
-                </div>
-                {isLunas && (
-                  <p className="mt-3 text-center text-xs font-medium text-success-400">🎉 Hutang ini sudah lunas!</p>
-                )}
-              </div>
-            );
-          })}
+              )}
+            </div>
+          )}
         </div>
       )}
       {/* Add Hutang Bottom Sheet */}
