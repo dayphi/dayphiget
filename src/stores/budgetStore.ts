@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
 import { getCurrentMonth, getLocalTodayStr } from '@/lib/utils';
 import type {
   Transaction,
