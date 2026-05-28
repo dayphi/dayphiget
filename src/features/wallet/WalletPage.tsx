@@ -10,7 +10,7 @@ import type { WalletTransfer } from '@/types';
 
 export function WalletPage() {
   const user = useAuthStore((s) => s.user);
-  const { isLoading, fetchAll, walletTransfers, walletBalances, paymentMethods, updateWalletTransfer, deleteWalletTransfer } = useBudgetStore();
+  const { isLoading, fetchAll, walletTransfers, walletBalances, deleteWalletTransfer } = useBudgetStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingTransfer, setEditingTransfer] = useState<WalletTransfer | null>(null);
 
