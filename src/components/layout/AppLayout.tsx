@@ -14,7 +14,6 @@ import {
   X,
 } from 'lucide-react';
 import { cn, formatRupiah } from '@/lib/utils';
-import { APP_NAME } from '@/lib/constants';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 
