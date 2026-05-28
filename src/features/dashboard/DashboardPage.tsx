@@ -11,7 +11,6 @@ import { Loader2 } from 'lucide-react';
 import { cn, formatRupiah } from '@/lib/utils';
 
 export function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
   const { isLoading, summary } = useBudgetStore();
 

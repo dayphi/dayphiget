@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { supabase } from '@/lib/supabase';
 import { APP_NAME, APP_VERSION } from '@/lib/constants';
-import { Download, Trash2, LogOut, ChevronRight, X, Loader2 } from 'lucide-react';
+import { Download, Trash2, LogOut, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ManageCategoriesSheet } from './ManageCategoriesSheet';
 import { ManagePaymentMethodsSheet } from './ManagePaymentMethodsSheet';
