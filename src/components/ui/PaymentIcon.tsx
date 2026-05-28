@@ -1,18 +1,18 @@
 import { cn } from '@/lib/utils';
 
 export const BANK_LOGOS: Record<string, string> = {
-  bca: 'https://upload.wikimedia.org/wikipedia/commons/5/5c/Bank_Central_Asia.svg',
-  mandiri: 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Bank_Mandiri_logo_2016.svg',
-  bni: 'https://upload.wikimedia.org/wikipedia/id/5/55/BNI_logo.svg',
-  bri: 'https://upload.wikimedia.org/wikipedia/commons/2/2e/BRI_2020.svg',
-  bsi: 'https://upload.wikimedia.org/wikipedia/commons/a/a4/Bank_Syariah_Indonesia.svg',
-  jago: 'https://upload.wikimedia.org/wikipedia/commons/f/f4/Logo_Bank_Jago.png',
-  seabank: 'https://upload.wikimedia.org/wikipedia/commons/a/a0/SeaBank_logo.png',
-  gopay: 'https://upload.wikimedia.org/wikipedia/commons/8/86/Gopay_logo.svg',
-  ovo: 'https://upload.wikimedia.org/wikipedia/commons/e/eb/Logo_ovo_purple.svg',
-  dana: 'https://upload.wikimedia.org/wikipedia/commons/7/72/Logo_dana_blue.svg',
-  shopeepay: 'https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee_logo.svg',
-  linkaja: 'https://upload.wikimedia.org/wikipedia/commons/8/85/LinkAja.svg',
+  bca: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/bca.svg',
+  mandiri: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/mandiri.svg',
+  bni: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/bni.svg',
+  bri: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/bri.svg',
+  bsi: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/bsi.svg',
+  jago: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/jago.svg',
+  seabank: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/seabank.svg',
+  gopay: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/gopay.svg',
+  ovo: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/ovo.svg',
+  dana: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/dana.svg',
+  shopeepay: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/shopee-pay.svg',
+  linkaja: 'https://cdn.jsdelivr.net/gh/hafidznoor/idn-finlogos@master/icons/linkaja.svg',
 };
 
 export function getAutoPaymentIcon(name: string): string | null {
@@ -52,14 +52,17 @@ export function PaymentIcon({
     const url = BANK_LOGOS[key];
     if (url) {
       return (
-        <img 
-          src={url} 
-          alt={key} 
-          className={cn("object-contain", className)}
-        />
+        <span className={cn("inline-flex items-center justify-center bg-white rounded-lg p-0.5 shrink-0 select-none overflow-hidden", className)}>
+          <img 
+            src={url} 
+            alt={key} 
+            className="w-full h-full object-contain"
+          />
+        </span>
       );
     }
   }
 
   return <span className={fallbackClassName}>{icon}</span>;
 }
+
