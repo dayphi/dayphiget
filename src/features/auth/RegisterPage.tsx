@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuthStore } from '@/stores/authStore';
 import { APP_NAME } from '@/lib/constants';
-import { Eye, EyeOff, Loader2, TrendingUp, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
 
 export function RegisterPage() {
   const signUp = useAuthStore((s) => s.signUp);

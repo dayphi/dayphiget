@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuthStore } from '@/stores/authStore';
 import { APP_NAME } from '@/lib/constants';
-import { Eye, EyeOff, Loader2, TrendingUp } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export function LoginPage() {
   const signIn = useAuthStore((s) => s.signIn);
