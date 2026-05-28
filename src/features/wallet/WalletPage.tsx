@@ -7,6 +7,8 @@ import { ArrowDownLeft, ArrowUpRight, ArrowRight, Loader2, Pencil, Trash2, X } f
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
 import type { WalletTransfer } from '@/types';
+import { getPaymentIconText } from '@/components/ui/PaymentIcon';
+
 
 export function WalletPage() {
   const user = useAuthStore((s) => s.user);
@@ -193,7 +195,7 @@ function EditTransferSheet({ transfer, onClose }: { transfer: WalletTransfer; on
               >
                 <option value="">Pilih</option>
                 {paymentMethods.map((w) => (
-                  <option key={w.id} value={w.id}>{w.icon || '💳'} {w.name}</option>
+                  <option key={w.id} value={w.id}>{getPaymentIconText(w.icon)} {w.name}</option>
                 ))}
               </select>
             </label>
@@ -207,7 +209,7 @@ function EditTransferSheet({ transfer, onClose }: { transfer: WalletTransfer; on
               >
                 <option value="">Pilih</option>
                 {paymentMethods.map((w) => (
-                  <option key={w.id} value={w.id}>{w.icon || '💳'} {w.name}</option>
+                  <option key={w.id} value={w.id}>{getPaymentIconText(w.icon)} {w.name}</option>
                 ))}
               </select>
             </label>

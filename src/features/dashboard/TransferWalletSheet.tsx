@@ -5,6 +5,8 @@ import { RupiahInput } from '@/components/ui/RupiahInput';
 import { cn, formatRupiah } from '@/lib/utils';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getPaymentIconText } from '@/components/ui/PaymentIcon';
+
 
 interface Props {
   onClose: () => void;
@@ -133,7 +135,7 @@ function WalletSelect({
         <option value="">Pilih</option>
         {wallets.map((wallet) => (
           <option key={wallet.id} value={wallet.id}>
-            {wallet.icon || '💳'} {wallet.name}
+            {getPaymentIconText(wallet.icon)} {wallet.name}
           </option>
         ))}
       </select>

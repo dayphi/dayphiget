@@ -4,6 +4,8 @@ import { useBudgetStore } from '@/stores/budgetStore';
 import { cn, formatRupiah } from '@/lib/utils';
 import { ArrowLeftRight, ArrowRight, X } from 'lucide-react';
 import { TransferWalletSheet } from './TransferWalletSheet';
+import { PaymentIcon } from '@/components/ui/PaymentIcon';
+
 
 interface Props {
   compact?: boolean;
@@ -51,7 +53,7 @@ export function WalletBalances({ compact = false }: Props) {
           {(compact ? walletBalances.slice(0, 3) : walletBalances).map(({ wallet, balance, income, expense, transferIn, transferOut }) => (
             <div key={wallet.id} className="flex items-center gap-3 px-4 py-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-800/70 text-lg">
-                {wallet.icon || '💳'}
+                <PaymentIcon icon={wallet.icon} className="w-6 h-6" fallbackClassName="text-lg" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-surface-200">{wallet.name}</p>
