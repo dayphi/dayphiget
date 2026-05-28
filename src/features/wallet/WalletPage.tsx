@@ -257,7 +257,6 @@ function EditTransferSheet({ transfer, onClose }: { transfer: WalletTransfer; on
             Simpan Perubahan
           </button>
         </form>
-      </form>
     </BottomSheet>
   );
 }
