@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { formatRupiah, formatDate, cn } from '@/lib/utils';
 import { Search, Trash2, Pencil, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
@@ -10,7 +11,14 @@ import { PaymentIcon } from '@/components/ui/PaymentIcon';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export function TransactionsPage() {
-  const { transactions, categories, isLoading, deleteTransaction } = useBudgetStore();
+  const user = useAuthStore((s) => s.user);
+  const {
+    transactionHistory,
+    categories,
+    isHistoryLoading,
+    fetchTransactionHistory,
+    deleteTransaction,
+  } = useBudgetStore();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState('');
@@ -18,7 +26,15 @@ export function TransactionsPage() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
 
-  const filtered = transactions.filter((tx) => {
+  useEffect(() => {
+    if (!user) return;
+
+    fetchTransactionHistory(user.id).catch((err) => {
+      toast.error(err instanceof Error ? err.message : 'Gagal mengambil riwayat transaksi');
+    });
+  }, [user, fetchTransactionHistory]);
+
+  const filtered = transactionHistory.filter((tx) => {
     if (filterType !== 'all' && tx.type !== filterType) return false;
     if (filterCategory && tx.category_id !== filterCategory) return false;
     if (search) {
@@ -124,7 +140,7 @@ export function TransactionsPage() {
       </div>
 
       {/* List */}
-      {isLoading ? (
+      {isHistoryLoading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
         </div>

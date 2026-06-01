@@ -23,6 +23,7 @@ import type {
 interface BudgetState {
   // Data
   transactions: Transaction[];
+  transactionHistory: Transaction[];
   categories: Category[];
   incomeSources: IncomeSource[];
   paymentMethods: PaymentMethod[];
@@ -37,12 +38,14 @@ interface BudgetState {
 
   // Loading
   isLoading: boolean;
+  isHistoryLoading: boolean;
   hasFetched: boolean;
 
   // Actions
   setCurrentMonth: (month: string) => void;
   fetchAll: (userId: string) => Promise<void>;
   fetchTransactions: (userId: string) => Promise<void>;
+  fetchTransactionHistory: (userId: string) => Promise<void>;
   fetchCategories: (userId: string) => Promise<void>;
   fetchIncomeSources: (userId: string) => Promise<void>;
   fetchPaymentMethods: (userId: string) => Promise<void>;
@@ -84,8 +87,21 @@ interface BudgetState {
   payHutang: (hutangId: string, userId: string, customAmount?: number, paymentMethodId?: string) => Promise<void>;
 }
 
+function isDateInPeriod(date: string, startDate: string, endDate: string) {
+  return date >= startDate && date <= endDate;
+}
+
+function sortTransactions(transactions: Transaction[]) {
+  return [...transactions].sort((a, b) => {
+    const dateCompare = b.date.localeCompare(a.date);
+    if (dateCompare !== 0) return dateCompare;
+    return b.created_at.localeCompare(a.created_at);
+  });
+}
+
 export const useBudgetStore = create<BudgetState>((set, get) => ({
   transactions: [],
+  transactionHistory: [],
   categories: [],
   incomeSources: [],
   paymentMethods: [],
@@ -96,6 +112,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   currentMonth: getCurrentBudgetMonth(),
   summary: null,
   isLoading: true,
+  isHistoryLoading: false,
   hasFetched: false,
 
   setCurrentMonth: (month) => set({ currentMonth: month }),
@@ -134,6 +151,37 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       .order('created_at', { ascending: false });
 
     if (data) set({ transactions: data as Transaction[] });
+  },
+
+  fetchTransactionHistory: async (userId) => {
+    set({ isHistoryLoading: true });
+
+    try {
+      const pageSize = 1000;
+      let from = 0;
+      let allRows: Transaction[] = [];
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('*, category:categories(*), payment_method:payment_methods(*)')
+          .eq('user_id', userId)
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw new Error(error.message);
+        const rows = (data || []) as Transaction[];
+        allRows = [...allRows, ...rows];
+
+        if (rows.length < pageSize) break;
+        from += pageSize;
+      }
+
+      set({ transactionHistory: allRows });
+    } finally {
+      set({ isHistoryLoading: false });
+    }
   },
 
   fetchCategories: async (userId) => {
@@ -371,8 +419,15 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       .single();
 
     if (data) {
+      const transaction = data as Transaction;
+      const period = getBudgetPeriod(get().currentMonth, getPrimaryPayDay(get().incomeSources));
+      const isCurrentPeriod = isDateInPeriod(transaction.date, period.startDate, period.endDate);
+
       set((state) => ({
-        transactions: [data as Transaction, ...state.transactions],
+        transactionHistory: sortTransactions([transaction, ...state.transactionHistory]),
+        transactions: isCurrentPeriod
+          ? sortTransactions([transaction, ...state.transactions])
+          : state.transactions,
       }));
       get().computeSummary();
     }
@@ -387,10 +442,21 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       .single();
 
     if (data) {
+      const transaction = data as Transaction;
+      const period = getBudgetPeriod(get().currentMonth, getPrimaryPayDay(get().incomeSources));
+      const isCurrentPeriod = isDateInPeriod(transaction.date, period.startDate, period.endDate);
+
       set((state) => ({
-        transactions: state.transactions.map((t) =>
-          t.id === id ? (data as Transaction) : t
+        transactionHistory: sortTransactions(
+          state.transactionHistory.map((t) => t.id === id ? transaction : t)
         ),
+        transactions: isCurrentPeriod
+          ? sortTransactions(
+            state.transactions.some((t) => t.id === id)
+              ? state.transactions.map((t) => t.id === id ? transaction : t)
+              : [transaction, ...state.transactions]
+          )
+          : state.transactions.filter((t) => t.id !== id),
       }));
       get().computeSummary();
     }
@@ -401,6 +467,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     if (error) throw new Error(error.message);
 
     set((state) => ({
+      transactionHistory: state.transactionHistory.filter((t) => t.id !== id),
       transactions: state.transactions.filter((t) => t.id !== id),
     }));
     get().computeSummary();
@@ -619,11 +686,16 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     if (txError) throw new Error(txError.message);
 
     // 4. Update local state
+    const transaction = txData as Transaction;
+    const period = getBudgetPeriod(get().currentMonth, getPrimaryPayDay(get().incomeSources));
+    const isCurrentPeriod = isDateInPeriod(transaction.date, period.startDate, period.endDate);
+
     set((s) => ({
       hutangList: s.hutangList.map((h) =>
         h.id === hutangId ? { ...h, remaining: newRemaining } : h
       ),
-      transactions: txData ? [txData as Transaction, ...s.transactions] : s.transactions,
+      transactionHistory: txData ? sortTransactions([transaction, ...s.transactionHistory]) : s.transactionHistory,
+      transactions: txData && isCurrentPeriod ? sortTransactions([transaction, ...s.transactions]) : s.transactions,
     }));
     get().computeSummary();
   },
