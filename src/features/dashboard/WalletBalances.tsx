@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { cn, formatRupiah } from '@/lib/utils';
-import { ArrowLeftRight, ArrowRight, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight } from 'lucide-react';
 import { TransferWalletSheet } from './TransferWalletSheet';
+import { PaymentIcon } from '@/components/ui/PaymentIcon';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+
 
 interface Props {
   compact?: boolean;
@@ -51,7 +54,7 @@ export function WalletBalances({ compact = false }: Props) {
           {(compact ? walletBalances.slice(0, 3) : walletBalances).map(({ wallet, balance, income, expense, transferIn, transferOut }) => (
             <div key={wallet.id} className="flex items-center gap-3 px-4 py-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-800/70 text-lg">
-                {wallet.icon || '💳'}
+                <PaymentIcon icon={wallet.icon} className="w-6 h-6" fallbackClassName="text-lg" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-surface-200">{wallet.name}</p>
@@ -76,25 +79,14 @@ export function WalletBalances({ compact = false }: Props) {
         </div>
       </div>
 
-      {showTransfer && (
-        <>
-          <div className="bottom-sheet-overlay" onClick={() => setShowTransfer(false)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t border-surface-700/50 bg-surface-900 animate-slide-up safe-bottom">
-            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-surface-600" />
-            <div className="flex items-center justify-between px-5 pb-2 pt-4">
-              <h2 className="text-lg font-bold text-surface-100">Transfer Wallet</h2>
-              <button
-                type="button"
-                onClick={() => setShowTransfer(false)}
-                className="rounded-lg p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-200"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <TransferWalletSheet onClose={() => setShowTransfer(false)} />
-          </div>
-        </>
-      )}
+      <BottomSheet
+        title="Transfer Wallet"
+        isOpen={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        maxHeight="max-h-[85dvh]"
+      >
+        <TransferWalletSheet onClose={() => setShowTransfer(false)} />
+      </BottomSheet>
     </>
   );
 }

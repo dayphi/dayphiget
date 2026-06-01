@@ -130,6 +130,12 @@ export function setIncomeSourceTag(tags: string[] | null | undefined, incomeSour
   return nextTags.length > 0 ? nextTags : null;
 }
 
+/** Get local today date string in YYYY-MM-DD format */
+export function getLocalTodayStr(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 /** Calculate percentage with bounds */
 export function calcPercent(value: number, total: number): number {
   if (total <= 0) return 0;

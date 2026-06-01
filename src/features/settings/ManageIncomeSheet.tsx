@@ -5,6 +5,7 @@ import { formatRupiah } from '@/lib/utils';
 import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export function ManageIncomeSheet() {
   const user = useAuthStore((s) => s.user);
@@ -36,14 +37,17 @@ export function ManageIncomeSheet() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus sumber pendapatan ini?')) return;
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
     try {
-      await deleteIncomeSource(id);
+      await deleteIncomeSource(deletingId);
       toast.success('Sumber pendapatan dihapus');
     } catch {
       toast.error('Gagal menghapus');
     }
+    setDeletingId(null);
   };
 
   const total = incomeSources.reduce((s, i) => s + Number(i.amount), 0);
@@ -106,7 +110,7 @@ export function ManageIncomeSheet() {
               <p className="text-xs text-surface-500">Tgl {src.pay_day} · {formatRupiah(Number(src.amount))}</p>
             </div>
             <button
-              onClick={() => handleDelete(src.id)}
+              onClick={() => setDeletingId(src.id)}
               className="rounded-lg p-1.5 text-surface-500 hover:text-danger-400 hover:bg-danger-500/10 transition-all"
             >
               <Trash2 size={14} />
@@ -117,6 +121,15 @@ export function ManageIncomeSheet() {
           <p className="text-center text-sm text-surface-500 py-6">Belum ada sumber pendapatan</p>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDelete}
+        title="Hapus Sumber Pendapatan"
+        description="Apakah Anda yakin ingin menghapus sumber pendapatan ini?"
+        confirmText="Hapus Sumber Pendapatan"
+      />
     </div>
   );
 }

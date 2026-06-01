@@ -4,12 +4,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { supabase } from '@/lib/supabase';
 import { APP_NAME, APP_VERSION } from '@/lib/constants';
-import { Download, Trash2, LogOut, ChevronRight, X, Loader2 } from 'lucide-react';
+import { Download, Trash2, LogOut, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ManageCategoriesSheet } from './ManageCategoriesSheet';
 import { ManagePaymentMethodsSheet } from './ManagePaymentMethodsSheet';
 import { ManageIncomeSheet } from './ManageIncomeSheet';
 import { AlertSettingsSheet } from './AlertSettingsSheet';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type SheetType = 'categories' | 'payment' | 'income' | 'alerts' | null;
 
@@ -19,6 +21,7 @@ export function SettingsPage() {
   const { transactions } = useBudgetStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [resetting, setResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const menuItems: { key: SheetType; label: string; desc: string; icon: string; path?: string }[] = [
     { key: 'categories', label: 'Kategori', desc: 'Kelola kategori pengeluaran', icon: '📂' },
@@ -64,10 +67,6 @@ export function SettingsPage() {
 
   const handleReset = async () => {
     if (!user) return;
-    const confirmed = confirm(
-      'PERHATIAN: Semua data transaksi, kategori, metode pembayaran, sumber pendapatan, dan hutang akan dihapus permanen. Lanjutkan?'
-    );
-    if (!confirmed) return;
 
     setResetting(true);
     try {
@@ -154,7 +153,7 @@ export function SettingsPage() {
           <span className="text-sm text-surface-200">Export Data (CSV)</span>
         </button>
         <button
-          onClick={handleReset}
+          onClick={() => setShowResetConfirm(true)}
           disabled={resetting}
           className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-800/30 disabled:opacity-50"
         >
@@ -173,24 +172,25 @@ export function SettingsPage() {
       </p>
 
       {/* Bottom Sheet for sub-pages */}
-      {activeSheet && (
-        <>
-          <div className="bottom-sheet-overlay" onClick={() => setActiveSheet(null)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-surface-900 border-t border-surface-700/50 animate-slide-up safe-bottom">
-            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-surface-600" />
-            <div className="flex items-center justify-between px-5 pt-4 pb-2">
-              <h2 className="text-lg font-bold text-surface-100">{sheetTitles[activeSheet]}</h2>
-              <button
-                onClick={() => setActiveSheet(null)}
-                className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-800 hover:text-surface-200 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            {renderSheet()}
-          </div>
-        </>
-      )}
+      <BottomSheet
+        title={activeSheet ? sheetTitles[activeSheet] : ''}
+        isOpen={!!activeSheet}
+        onClose={() => setActiveSheet(null)}
+        maxHeight="max-h-[85dvh]"
+      >
+        {renderSheet()}
+      </BottomSheet>
+
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={handleReset}
+        title="Reset Semua Data"
+        description="PERHATIAN: Semua data transaksi, kategori, metode pembayaran, sumber pendapatan, dan hutang akan dihapus permanen. Tindakan ini tidak dapat dibatalkan!"
+        confirmText="Hapus Semua Data"
+        isDestructive={true}
+        typeToConfirmPhrase="HAPUS SEMUA"
+      />
     </div>
   );
 }

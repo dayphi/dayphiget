@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import {
   getBudgetPeriod,
   getCurrentBudgetMonth,
+  getLocalTodayStr,
   getPrimaryPayDay,
   getRemainingDaysInPeriod,
   isRecurringIncomeTransaction,
@@ -36,6 +37,7 @@ interface BudgetState {
 
   // Loading
   isLoading: boolean;
+  hasFetched: boolean;
 
   // Actions
   setCurrentMonth: (month: string) => void;
@@ -61,6 +63,7 @@ interface BudgetState {
 
   // Payment Method CRUD
   addPaymentMethod: (pm: Partial<PaymentMethod>) => Promise<void>;
+  updatePaymentMethod: (id: string, pm: Partial<PaymentMethod>) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
   addWalletTransfer: (transfer: Partial<WalletTransfer>) => Promise<void>;
   updateWalletTransfer: (id: string, transfer: Partial<WalletTransfer>) => Promise<void>;
@@ -93,12 +96,13 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   currentMonth: getCurrentBudgetMonth(),
   summary: null,
   isLoading: true,
+  hasFetched: false,
 
   setCurrentMonth: (month) => set({ currentMonth: month }),
 
   fetchAll: async (userId) => {
     // Only show loading spinner on first load
-    const isFirstLoad = get().transactions.length === 0 && get().categories.length === 0;
+    const isFirstLoad = !get().hasFetched;
     if (isFirstLoad) set({ isLoading: true });
 
     await get().fetchIncomeSources(userId);
@@ -113,7 +117,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       get().fetchHutang(userId),
     ]);
     get().computeSummary();
-    if (isFirstLoad) set({ isLoading: false });
+    if (isFirstLoad) set({ isLoading: false, hasFetched: true });
   },
 
   fetchTransactions: async (userId) => {
@@ -268,8 +272,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const now = new Date();
     const daysRemaining = getRemainingDaysInPeriod(period.endDate, now);
 
-    // Use local date string (not UTC)
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayStr = getLocalTodayStr();
     const spendableExpenses = expenses.filter(
       (t) => t.category?.type !== 'tabungan' && t.category?.name !== 'Cicilan Hutang' && !t.notes?.startsWith('Bayar cicilan:')
     );
@@ -300,20 +303,31 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const sisaPct = totalIncome > 0 ? (sisaBudget / totalIncome) * 100 : 0;
     const status = sisaBudget < 0 ? 'deficit' : sisaPct < 15 ? 'warning' : 'healthy';
 
+    // Pre-group transactions by wallet to avoid O(N*M) loop
+    const txByWallet = transactions.reduce<Record<string, { income: number; expense: number }>>((acc, tx) => {
+      const pmId = tx.payment_method_id;
+      if (!pmId) return acc;
+      if (!acc[pmId]) acc[pmId] = { income: 0, expense: 0 };
+      acc[pmId][tx.type] += Number(tx.amount);
+      return acc;
+    }, {});
+
+    const transferByWallet = walletTransfers.reduce<Record<string, { in: number; out: number }>>((acc, tx) => {
+      if (!acc[tx.to_payment_method_id]) acc[tx.to_payment_method_id] = { in: 0, out: 0 };
+      acc[tx.to_payment_method_id].in += Number(tx.amount);
+
+      if (!acc[tx.from_payment_method_id]) acc[tx.from_payment_method_id] = { in: 0, out: 0 };
+      acc[tx.from_payment_method_id].out += Number(tx.amount);
+
+      return acc;
+    }, {});
+
     const walletBalances = paymentMethods.map((wallet) => {
       const walletId = wallet.id;
-      const income = transactions
-        .filter((t) => t.type === 'income' && t.payment_method_id === walletId)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-      const expense = transactions
-        .filter((t) => t.type === 'expense' && t.payment_method_id === walletId)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-      const transferIn = walletTransfers
-        .filter((t) => t.to_payment_method_id === walletId)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-      const transferOut = walletTransfers
-        .filter((t) => t.from_payment_method_id === walletId)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const income = txByWallet[walletId]?.income || 0;
+      const expense = txByWallet[walletId]?.expense || 0;
+      const transferIn = transferByWallet[walletId]?.in || 0;
+      const transferOut = transferByWallet[walletId]?.out || 0;
 
       return {
         wallet,
@@ -383,7 +397,9 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   },
 
   deleteTransaction: async (id) => {
-    await supabase.from('transactions').delete().eq('id', id);
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+
     set((state) => ({
       transactions: state.transactions.filter((t) => t.id !== id),
     }));
@@ -415,6 +431,17 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     if (error) throw new Error(error.message);
     if (data) set((s) => ({ paymentMethods: [...s.paymentMethods, data as PaymentMethod] }));
     get().computeSummary();
+  },
+
+  updatePaymentMethod: async (id, pm) => {
+    const { data, error } = await supabase.from('payment_methods').update(pm).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    if (data) {
+      set((s) => ({
+        paymentMethods: s.paymentMethods.map((p) => p.id === id ? (data as PaymentMethod) : p)
+      }));
+      get().computeSummary();
+    }
   },
 
   deletePaymentMethod: async (id) => {
@@ -518,7 +545,9 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   },
 
   deleteHutang: async (id) => {
-    await supabase.from('hutang').delete().eq('id', id);
+    const { error } = await supabase.from('hutang').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+
     set((state) => ({
       hutangList: state.hutangList.filter((h) => h.id !== id),
     }));
@@ -572,8 +601,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     }
 
     // 3. Record as expense transaction
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayStr = getLocalTodayStr();
 
     const { data: txData, error: txError } = await supabase
       .from('transactions')

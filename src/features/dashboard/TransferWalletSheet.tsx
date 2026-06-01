@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { cn, formatRupiah } from '@/lib/utils';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { PaymentIcon } from '@/components/ui/PaymentIcon';
+
 
 interface Props {
   onClose: () => void;
@@ -122,21 +124,67 @@ function WalletSelect({
   wallets: { id: string; name: string; icon: string | null }[];
   onChange: (value: string) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selected = wallets.find((w) => w.id === value);
+
   return (
-    <label className="flex min-w-0 flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5" ref={ref}>
       <span className="text-xs font-medium text-surface-400">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 rounded-xl border border-surface-700 bg-surface-800/50 px-3 py-3 text-sm text-surface-100 outline-none focus:border-primary-500"
-      >
-        <option value="">Pilih</option>
-        {wallets.map((wallet) => (
-          <option key={wallet.id} value={wallet.id}>
-            {wallet.icon || '💳'} {wallet.name}
-          </option>
-        ))}
-      </select>
-    </label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex w-full items-center justify-between gap-2 rounded-xl border border-surface-700 bg-surface-800/50 px-3 py-2.5 text-sm text-surface-100 outline-none focus:border-primary-500"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            {selected ? (
+              <>
+                <PaymentIcon icon={selected.icon} className="h-5 w-5 rounded shrink-0 bg-white" fallbackClassName="text-sm shrink-0" />
+                <span className="truncate">{selected.name}</span>
+              </>
+            ) : (
+              <span className="text-surface-500">Pilih</span>
+            )}
+          </span>
+          <ChevronDown size={16} className={cn('shrink-0 text-surface-500 transition-transform', isOpen && 'rotate-180')} />
+        </button>
+
+        {isOpen && (
+          <div className="absolute left-0 top-full z-50 mt-1 w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-surface-700 bg-surface-800 shadow-xl shadow-black/40">
+            <div className="max-h-48 overflow-y-auto py-1">
+              {wallets.map((wallet) => (
+                <button
+                  key={wallet.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(wallet.id);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-700',
+                    value === wallet.id ? 'bg-primary-500/10 text-primary-400' : 'text-surface-200'
+                  )}
+                >
+                  <PaymentIcon icon={wallet.icon} className="h-5 w-5 rounded shrink-0 bg-white" fallbackClassName="text-sm shrink-0" />
+                  <span className="truncate">{wallet.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

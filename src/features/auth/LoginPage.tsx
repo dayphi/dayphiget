@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuthStore } from '@/stores/authStore';
 import { APP_NAME } from '@/lib/constants';
-import { Eye, EyeOff, Loader2, TrendingUp } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export function LoginPage() {
   const signIn = useAuthStore((s) => s.signIn);
@@ -28,9 +28,7 @@ export function LoginPage() {
     <div className="flex min-h-dvh flex-col items-center justify-center bg-surface-950 px-4 gradient-mesh">
       {/* Logo */}
       <div className="mb-8 flex flex-col items-center gap-3 animate-fade-in">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary shadow-lg shadow-primary-600/20">
-          <TrendingUp className="h-8 w-8 text-white" />
-        </div>
+        <img src="/logo.webp" alt="Dayphi Logo" className="h-20 w-20 rounded-2xl object-cover shadow-lg shadow-primary-600/20" />
         <h1 className="text-2xl font-bold text-gradient">{APP_NAME}</h1>
         <p className="text-sm text-surface-400">Kelola keuanganmu dengan cerdas</p>
       </div>

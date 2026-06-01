@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { cn, formatRupiah, getIncomeSourceIdFromTags, setIncomeSourceTag } from '@/lib/utils';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
 import type { Transaction, TransactionType } from '@/types';
+import { PaymentIcon } from '@/components/ui/PaymentIcon';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+
 
 interface Props {
   transaction: Transaction;
@@ -71,24 +74,12 @@ export function EditTransactionSheet({ transaction, onClose }: Props) {
   };
 
   return (
-    <>
-      <div
-        className="bottom-sheet-overlay"
-        onClick={onClose}
-      />
-      <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-surface-900 border-t border-surface-700/50 animate-slide-up safe-bottom">
-        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-surface-600" />
-        <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <h2 className="text-lg font-bold text-surface-100">Edit Transaksi</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-800 hover:text-surface-200 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-5 pb-8 pt-2">
+    <BottomSheet
+      title="Edit Transaksi"
+      isOpen={true}
+      onClose={onClose}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-5 pb-8 pt-2">
           {/* Type Toggle */}
           <div className="flex gap-2 rounded-xl bg-surface-800/50 p-1">
             {(['expense', 'income'] as const).map((t) => (
@@ -192,13 +183,13 @@ export function EditTransactionSheet({ transaction, onClose }: Props) {
                       setPaymentMethodId(paymentMethodId === pm.id ? '' : pm.id)
                     }
                     className={cn(
-                      'rounded-lg border px-3 py-2 text-xs transition-all',
+                      'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-all',
                       paymentMethodId === pm.id
                         ? 'border-primary-500 bg-primary-500/10 text-primary-300'
                         : 'border-surface-700/50 text-surface-400 hover:border-surface-600'
                     )}
                   >
-                    {pm.icon} {pm.name}
+                    <PaymentIcon icon={pm.icon} className="w-3.5 h-3.5" fallbackClassName="text-sm" /> {pm.name}
                   </button>
                 ))}
               </div>
@@ -233,7 +224,6 @@ export function EditTransactionSheet({ transaction, onClose }: Props) {
             )}
           </button>
         </form>
-      </div>
-    </>
+    </BottomSheet>
   );
 }

@@ -1,34 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { WalletBalances } from '@/features/dashboard/WalletBalances';
 import { cn, formatRupiah } from '@/lib/utils';
-import { ArrowDownLeft, ArrowUpRight, ArrowRight, Loader2, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowRight, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
 import type { WalletTransfer } from '@/types';
+import { getPaymentIconText } from '@/components/ui/PaymentIcon';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+
 
 export function WalletPage() {
-  const user = useAuthStore((s) => s.user);
-  const { isLoading, fetchAll, walletTransfers, walletBalances, deleteWalletTransfer } = useBudgetStore();
+  const { isLoading, walletTransfers, walletBalances, deleteWalletTransfer } = useBudgetStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingTransfer, setEditingTransfer] = useState<WalletTransfer | null>(null);
 
-  useEffect(() => {
-    if (user) fetchAll(user.id);
-  }, [user, fetchAll]);
-
   const totalBalance = walletBalances.reduce((sum, item) => sum + item.balance, 0);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus transfer ini?')) return;
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
     try {
-      await deleteWalletTransfer(id);
+      await deleteWalletTransfer(deletingId);
       setExpandedId(null);
       toast.success('Transfer dihapus');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menghapus transfer');
     }
+    setDeletingId(null);
   };
 
   const handleEdit = (transfer: WalletTransfer) => {
@@ -105,7 +107,7 @@ export function WalletPage() {
                         Edit
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(transfer.id); }}
+                        onClick={(e) => { e.stopPropagation(); setDeletingId(transfer.id); }}
                         className="flex items-center gap-1.5 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-1.5 text-xs font-medium text-danger-400 transition-all hover:bg-danger-500/20"
                       >
                         <Trash2 size={12} />
@@ -120,13 +122,27 @@ export function WalletPage() {
         )}
       </section>
 
-      {/* Edit Transfer Sheet */}
-      {editingTransfer && (
-        <EditTransferSheet
-          transfer={editingTransfer}
-          onClose={() => setEditingTransfer(null)}
-        />
-      )}
+      <BottomSheet
+        title="Edit Transfer"
+        isOpen={!!editingTransfer}
+        onClose={() => setEditingTransfer(null)}
+      >
+        {editingTransfer && (
+          <EditTransferSheet
+            transfer={editingTransfer}
+            onClose={() => setEditingTransfer(null)}
+          />
+        )}
+      </BottomSheet>
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDelete}
+        title="Hapus Transfer"
+        description="Apakah Anda yakin ingin menghapus transfer wallet ini? Saldo masing-masing wallet akan dikembalikan seperti sebelum transfer ini terjadi."
+        confirmText="Hapus Transfer"
+      />
     </div>
   );
 }
@@ -168,21 +184,12 @@ function EditTransferSheet({ transfer, onClose }: { transfer: WalletTransfer; on
   };
 
   return (
-    <>
-      <div className="bottom-sheet-overlay" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-surface-900 border-t border-surface-700/50 animate-slide-up safe-bottom">
-        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-surface-600" />
-        <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <h2 className="text-lg font-bold text-surface-100">Edit Transfer</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-800 hover:text-surface-200 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-5 pb-8 pt-2">
+    <BottomSheet
+      title="Edit Transfer"
+      isOpen={true}
+      onClose={onClose}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-5 pb-8 pt-2">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <label className="flex min-w-0 flex-col gap-1.5">
               <span className="text-xs font-medium text-surface-400">Dari</span>
@@ -193,7 +200,7 @@ function EditTransferSheet({ transfer, onClose }: { transfer: WalletTransfer; on
               >
                 <option value="">Pilih</option>
                 {paymentMethods.map((w) => (
-                  <option key={w.id} value={w.id}>{w.icon || '💳'} {w.name}</option>
+                  <option key={w.id} value={w.id}>{getPaymentIconText(w.icon)} {w.name}</option>
                 ))}
               </select>
             </label>
@@ -207,7 +214,7 @@ function EditTransferSheet({ transfer, onClose }: { transfer: WalletTransfer; on
               >
                 <option value="">Pilih</option>
                 {paymentMethods.map((w) => (
-                  <option key={w.id} value={w.id}>{w.icon || '💳'} {w.name}</option>
+                  <option key={w.id} value={w.id}>{getPaymentIconText(w.icon)} {w.name}</option>
                 ))}
               </select>
             </label>
@@ -250,7 +257,6 @@ function EditTransferSheet({ transfer, onClose }: { transfer: WalletTransfer; on
             Simpan Perubahan
           </button>
         </form>
-      </div>
-    </>
+    </BottomSheet>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router';
 import {
   Home,
@@ -14,7 +14,6 @@ import {
   X,
 } from 'lucide-react';
 import { cn, formatRupiah } from '@/lib/utils';
-import { APP_NAME } from '@/lib/constants';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 
@@ -30,11 +29,18 @@ export function AppLayout() {
   const location = useLocation();
   const signOut = useAuthStore((s) => s.signOut);
   const updateProfile = useAuthStore((s) => s.updateProfile);
+  const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
-  const { summary, hutangList } = useBudgetStore();
+  const { summary, hutangList, fetchAll } = useBudgetStore();
   const [showAlerts, setShowAlerts] = useState(false);
   const theme = profile?.theme || 'dark';
   const ThemeIcon = theme === 'light' ? Sun : theme === 'system' ? Monitor : Moon;
+
+  useEffect(() => {
+    if (user) {
+      fetchAll(user.id);
+    }
+  }, [user, fetchAll]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
@@ -84,7 +90,9 @@ export function AppLayout() {
     <div className="flex min-h-dvh flex-col bg-surface-950">
       {/* Top Header */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-surface-700/70 bg-surface-900 px-4 py-3 shadow-lg shadow-black/20">
-        <h1 className="text-lg font-bold text-gradient">{APP_NAME}</h1>
+        <div className="flex items-center">
+          <img src="/logo.webp" alt="Dayphi Logo" className="h-10 w-auto rounded-lg object-contain shadow-sm" />
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleTheme}

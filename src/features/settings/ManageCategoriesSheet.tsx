@@ -5,6 +5,7 @@ import { CATEGORY_ICON_OPTIONS, CATEGORY_TYPE_LABELS, DEFAULT_CATEGORIES } from 
 import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CategoryType } from '@/types';
 
 export function ManageCategoriesSheet() {
@@ -70,14 +71,17 @@ export function ManageCategoriesSheet() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus kategori ini?')) return;
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
     try {
-      await deleteCategory(id);
+      await deleteCategory(deletingId);
       toast.success('Kategori dihapus');
     } catch {
       toast.error('Gagal menghapus (mungkin masih dipakai transaksi)');
     }
+    setDeletingId(null);
   };
 
   return (
@@ -201,7 +205,7 @@ export function ManageCategoriesSheet() {
                 <span className="text-lg">{cat.icon || '📦'}</span>
                 <span className="flex-1 text-sm text-surface-200">{cat.name}</span>
                 <button
-                  onClick={() => handleDelete(cat.id)}
+                  onClick={() => setDeletingId(cat.id)}
                   className="rounded-lg p-1.5 text-surface-500 hover:text-danger-400 hover:bg-danger-500/10 transition-all"
                 >
                   <Trash2 size={14} />
@@ -215,6 +219,15 @@ export function ManageCategoriesSheet() {
       {categories.length === 0 && (
         <p className="text-center text-sm text-surface-500 py-6">Belum ada kategori</p>
       )}
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDelete}
+        title="Hapus Kategori"
+        description="Apakah Anda yakin ingin menghapus kategori ini? Pastikan kategori ini tidak sedang dipakai di transaksi manapun."
+        confirmText="Hapus Kategori"
+      />
     </div>
   );
 }
