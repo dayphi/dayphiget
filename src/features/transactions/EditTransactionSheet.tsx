@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
-import { cn } from '@/lib/utils';
+import { cn, formatRupiah, getIncomeSourceIdFromTags, setIncomeSourceTag } from '@/lib/utils';
 import { Loader2, X } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
@@ -14,24 +14,37 @@ interface Props {
 
 export function EditTransactionSheet({ transaction, onClose }: Props) {
   const user = useAuthStore((s) => s.user);
-  const { categories, paymentMethods, updateTransaction, fetchCategories, fetchPaymentMethods } = useBudgetStore();
+  const { categories, incomeSources, paymentMethods, updateTransaction, fetchCategories, fetchIncomeSources, fetchPaymentMethods } = useBudgetStore();
 
   useEffect(() => {
     if (user && categories.length === 0) fetchCategories(user.id);
+    if (user && incomeSources.length === 0) fetchIncomeSources(user.id);
     if (user && paymentMethods.length === 0) fetchPaymentMethods(user.id);
-  }, [user, categories.length, paymentMethods.length, fetchCategories, fetchPaymentMethods]);
+  }, [user, categories.length, incomeSources.length, paymentMethods.length, fetchCategories, fetchIncomeSources, fetchPaymentMethods]);
 
   const [type, setType] = useState<TransactionType>(transaction.type);
   const [categoryId, setCategoryId] = useState(transaction.category_id);
   const [amount, setAmount] = useState(String(transaction.amount));
   const [date, setDate] = useState(transaction.date);
   const [paymentMethodId, setPaymentMethodId] = useState(transaction.payment_method_id || '');
+  const [incomeSourceId, setIncomeSourceId] = useState(getIncomeSourceIdFromTags(transaction.tags) || '');
   const [notes, setNotes] = useState(transaction.notes || '');
   const [loading, setLoading] = useState(false);
 
   const filteredCategories = categories.filter((c) =>
     type === 'income' ? c.type === 'tabungan' : true
   );
+
+  const handleIncomeSourceChange = (val: string) => {
+    setIncomeSourceId(val);
+    if (!val) return;
+
+    const source = incomeSources.find((item) => item.id === val);
+    if (!source) return;
+
+    setAmount(String(Number(source.amount)));
+    setNotes(`Realisasi: ${source.name}`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +59,7 @@ export function EditTransactionSheet({ transaction, onClose }: Props) {
         amount: parseFloat(amount),
         date,
         notes: notes || null,
+        tags: type === 'income' ? setIncomeSourceTag(transaction.tags, incomeSourceId || null) : null,
       });
       toast.success('Transaksi diperbarui! ✅');
       onClose();
@@ -81,7 +95,7 @@ export function EditTransactionSheet({ transaction, onClose }: Props) {
               <button
                 key={t}
                 type="button"
-                onClick={() => { setType(t); setCategoryId(''); }}
+                onClick={() => { setType(t); setCategoryId(''); setIncomeSourceId(''); }}
                 className={cn(
                   'flex-1 rounded-lg py-2.5 text-sm font-medium transition-all duration-200',
                   type === t
@@ -95,6 +109,27 @@ export function EditTransactionSheet({ transaction, onClose }: Props) {
               </button>
             ))}
           </div>
+
+          {type === 'income' && incomeSources.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-surface-300">Sumber Pemasukan</label>
+              <select
+                value={incomeSourceId}
+                onChange={(e) => handleIncomeSourceChange(e.target.value)}
+                className="rounded-xl border border-surface-700 bg-surface-800/50 px-4 py-3 text-sm text-surface-100 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              >
+                <option value="">Pemasukan tambahan</option>
+                {incomeSources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name} - {formatRupiah(Number(source.amount))}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs leading-relaxed text-surface-500">
+                Sumber rutin tetap menambah saldo wallet, tapi tidak menghitung income budget dua kali.
+              </p>
+            </div>
+          )}
 
           {/* Category */}
           <div className="flex flex-col gap-1.5">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useBudgetStore } from '@/stores/budgetStore';
-import { cn, formatRupiah } from '@/lib/utils';
+import { cn, formatRupiah, setIncomeSourceTag } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { RupiahInput } from '@/components/ui/RupiahInput';
 import { toast } from 'sonner';
@@ -15,12 +15,13 @@ const HUTANG_PREFIX = 'hutang::';
 
 export function AddTransactionSheet({ onClose }: Props) {
   const user = useAuthStore((s) => s.user);
-  const { categories, paymentMethods, addTransaction, fetchCategories, fetchPaymentMethods, hutangList, payHutang, budgetItems, transactions, summary } = useBudgetStore();
+  const { categories, incomeSources, paymentMethods, addTransaction, fetchCategories, fetchIncomeSources, fetchPaymentMethods, hutangList, payHutang, budgetItems, transactions, summary } = useBudgetStore();
 
   useEffect(() => {
     if (user && categories.length === 0) fetchCategories(user.id);
+    if (user && incomeSources.length === 0) fetchIncomeSources(user.id);
     if (user && paymentMethods.length === 0) fetchPaymentMethods(user.id);
-  }, [user, categories.length, paymentMethods.length, fetchCategories, fetchPaymentMethods]);
+  }, [user, categories.length, incomeSources.length, paymentMethods.length, fetchCategories, fetchIncomeSources, fetchPaymentMethods]);
 
   const [type, setType] = useState<TransactionType>('expense');
   const [categoryId, setCategoryId] = useState('');
@@ -28,6 +29,7 @@ export function AddTransactionSheet({ onClose }: Props) {
   const now = new Date();
   const [date, setDate] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
   const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [incomeSourceId, setIncomeSourceId] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -65,6 +67,17 @@ export function AddTransactionSheet({ onClose }: Props) {
     }
   };
 
+  const handleIncomeSourceChange = (val: string) => {
+    setIncomeSourceId(val);
+    if (!val) return;
+
+    const source = incomeSources.find((item) => item.id === val);
+    if (!source) return;
+
+    setAmount(String(Number(source.amount)));
+    setNotes(`Realisasi: ${source.name}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !amount || !categoryId || (paymentMethods.length > 0 && !paymentMethodId)) return;
@@ -83,7 +96,7 @@ export function AddTransactionSheet({ onClose }: Props) {
           amount: parseFloat(amount),
           date,
           notes: notes || null,
-          tags: null,
+          tags: type === 'income' ? setIncomeSourceTag(null, incomeSourceId || null) : null,
           is_recurring: false,
           recurring_freq: null,
         });
@@ -105,7 +118,7 @@ export function AddTransactionSheet({ onClose }: Props) {
           <button
             key={t}
             type="button"
-            onClick={() => { setType(t); setCategoryId(''); setAmount(''); setPaymentMethodId(''); setNotes(''); }}
+            onClick={() => { setType(t); setCategoryId(''); setAmount(''); setPaymentMethodId(''); setIncomeSourceId(''); setNotes(''); }}
             className={cn(
               'flex-1 rounded-lg py-2.5 text-sm font-medium transition-all duration-200',
               type === t
@@ -119,6 +132,27 @@ export function AddTransactionSheet({ onClose }: Props) {
           </button>
         ))}
       </div>
+
+      {type === 'income' && incomeSources.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-surface-300">Sumber Pemasukan</label>
+          <select
+            value={incomeSourceId}
+            onChange={(e) => handleIncomeSourceChange(e.target.value)}
+            className="rounded-xl border border-surface-700 bg-surface-800/50 px-4 py-3 text-sm text-surface-100 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          >
+            <option value="">Pemasukan tambahan</option>
+            {incomeSources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name} - {formatRupiah(Number(source.amount))}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs leading-relaxed text-surface-500">
+            Pilih sumber rutin untuk mencatat uang masuk ke wallet tanpa menghitung income budget dua kali.
+          </p>
+        </div>
+      )}
 
       {/* Category (with hutang integrated) */}
       <div className="flex flex-col gap-1.5">

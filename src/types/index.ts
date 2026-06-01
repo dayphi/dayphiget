@@ -167,6 +167,9 @@ export interface DashboardSummary {
   dailyLimit: number;
   todaySpent: number;
   daysRemaining: number;
+  periodStartDate: string;
+  periodEndDate: string;
+  periodPayDay: number;
 }
 
 export interface CategoryBreakdown {

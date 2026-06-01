@@ -63,7 +63,7 @@ export function DailySpendingBar({ summary }: Props) {
       <p className="mt-3 text-xs leading-relaxed text-surface-500">
         {dailyLimitSource === 'budget'
           ? 'Jatah harian dihitung dari sisa budget kategori belanja. Target tabungan dan cicilan dipisahkan.'
-          : 'Belum ada budget belanja, jadi jatah harian dihitung dari sisa uang bulan ini.'}
+          : 'Belum ada budget belanja, jadi jatah harian dihitung dari sisa uang periode ini.'}
       </p>
     </div>
   );

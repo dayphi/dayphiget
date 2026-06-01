@@ -31,7 +31,7 @@ export function ExpenseDonut() {
     return (
       <div className="glass-card p-6 text-center animate-slide-up" style={{ animationDelay: '300ms' }}>
         <p className="text-3xl mb-2">📊</p>
-        <p className="text-sm text-surface-400">Belum ada pengeluaran bulan ini</p>
+        <p className="text-sm text-surface-400">Belum ada pengeluaran periode ini</p>
         <p className="text-xs text-surface-500 mt-1">Mulai catat transaksimu!</p>
       </div>
     );

@@ -43,7 +43,7 @@ export function BudgetPage() {
     <div className="flex flex-col gap-5 animate-fade-in">
       <div>
         <h2 className="text-lg font-bold text-surface-100">Budget Breakdown</h2>
-        <p className="text-xs text-surface-500">Budget vs aktual bulan ini</p>
+        <p className="text-xs text-surface-500">Budget vs aktual periode ini</p>
       </div>
 
       {summary && (

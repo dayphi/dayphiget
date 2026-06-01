@@ -10,7 +10,7 @@ import type { WalletTransfer } from '@/types';
 
 export function WalletPage() {
   const user = useAuthStore((s) => s.user);
-  const { isLoading, fetchAll, walletTransfers, walletBalances, paymentMethods, updateWalletTransfer, deleteWalletTransfer } = useBudgetStore();
+  const { isLoading, fetchAll, walletTransfers, walletBalances, deleteWalletTransfer } = useBudgetStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingTransfer, setEditingTransfer] = useState<WalletTransfer | null>(null);
 
@@ -52,7 +52,7 @@ export function WalletPage() {
           {formatRupiah(totalBalance)}
         </p>
         <p className="mt-2 text-xs text-surface-500">
-          Saldo dihitung dari saldo awal, pemasukan, pengeluaran, dan transfer antar wallet bulan ini.
+          Saldo dihitung dari saldo awal, pemasukan, pengeluaran, dan transfer antar wallet periode ini.
         </p>
       </section>
 
@@ -63,7 +63,7 @@ export function WalletPage() {
           <h2 className="text-sm font-semibold text-surface-200">Transfer Terakhir</h2>
         </div>
         {walletTransfers.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-surface-500">Belum ada transfer wallet bulan ini</p>
+          <p className="px-4 py-8 text-center text-sm text-surface-500">Belum ada transfer wallet periode ini</p>
         ) : (
           <div className="divide-y divide-surface-800/50">
             {walletTransfers.slice(0, 10).map((transfer) => {

@@ -1,5 +1,8 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { IncomeSource } from '@/types';
+
+export const INCOME_SOURCE_TAG_PREFIX = 'income_source:';
 
 /** Merge Tailwind class names safely */
 export function cn(...inputs: ClassValue[]) {
@@ -44,6 +47,87 @@ export function getRemainingDays(): number {
 export function getCurrentMonth(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function toLocalDateString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function clampedPayDate(year: number, monthIndex: number, payDay: number): Date {
+  return new Date(year, monthIndex, Math.min(payDay, daysInMonth(year, monthIndex)));
+}
+
+/** Get the first configured recurring payday, falling back to calendar months. */
+export function getPrimaryPayDay(incomeSources: IncomeSource[]): number {
+  const source = incomeSources.find((item) => item.is_recurring && item.pay_day);
+  const payDay = Number(source?.pay_day || 1);
+  return Number.isFinite(payDay) ? Math.min(Math.max(Math.trunc(payDay), 1), 31) : 1;
+}
+
+/** Get active budget label in YYYY-MM. With payday 25, Jun 25 starts the Jul budget. */
+export function getCurrentBudgetMonth(payDay = 1, now = new Date()): string {
+  const startThisMonth = clampedPayDate(now.getFullYear(), now.getMonth(), payDay);
+  const labelDate = payDay > 1 && now >= startThisMonth
+    ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    : now;
+
+  return `${labelDate.getFullYear()}-${String(labelDate.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Get date range for a budget period. With payday 25, 2026-06 is May 25-Jun 24. */
+export function getBudgetPeriod(month: string, payDay = 1) {
+  const [year, oneBasedMonth] = month.split('-').map(Number);
+
+  if (!year || !oneBasedMonth || payDay <= 1) {
+    const now = new Date();
+    const fallbackMonth = month || getCurrentMonth();
+    const [fallbackYear, fallbackOneBasedMonth] = fallbackMonth.split('-').map(Number);
+    const end = new Date(fallbackYear || now.getFullYear(), fallbackOneBasedMonth || now.getMonth() + 1, 0);
+
+    return {
+      startDate: `${fallbackMonth}-01`,
+      endDate: toLocalDateString(end),
+      payDay: 1,
+    };
+  }
+
+  const periodStart = clampedPayDate(year, oneBasedMonth - 2, payDay);
+  const nextPeriodStart = clampedPayDate(year, oneBasedMonth - 1, payDay);
+  const periodEnd = new Date(nextPeriodStart);
+  periodEnd.setDate(periodEnd.getDate() - 1);
+
+  return {
+    startDate: toLocalDateString(periodStart),
+    endDate: toLocalDateString(periodEnd),
+    payDay,
+  };
+}
+
+/** Count remaining days from today until the active period end, inclusive. */
+export function getRemainingDaysInPeriod(endDate: string, now = new Date()): number {
+  const [year, month, day] = endDate.split('-').map(Number);
+  const end = new Date(year, month - 1, day);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.floor((end.getTime() - today.getTime()) / 86_400_000) + 1;
+  return Math.max(diff, 1);
+}
+
+export function getIncomeSourceIdFromTags(tags: string[] | null | undefined): string | null {
+  return tags?.find((tag) => tag.startsWith(INCOME_SOURCE_TAG_PREFIX))?.slice(INCOME_SOURCE_TAG_PREFIX.length) || null;
+}
+
+export function isRecurringIncomeTransaction(tags: string[] | null | undefined): boolean {
+  return Boolean(getIncomeSourceIdFromTags(tags));
+}
+
+export function setIncomeSourceTag(tags: string[] | null | undefined, incomeSourceId: string | null): string[] | null {
+  const nextTags = (tags || []).filter((tag) => !tag.startsWith(INCOME_SOURCE_TAG_PREFIX));
+  if (incomeSourceId) nextTags.push(`${INCOME_SOURCE_TAG_PREFIX}${incomeSourceId}`);
+  return nextTags.length > 0 ? nextTags : null;
 }
 
 /** Calculate percentage with bounds */

@@ -8,7 +8,7 @@ import { RecentTransactions } from './RecentTransactions';
 import { QuickAddFab } from './QuickAddFab';
 import { WalletBalances } from './WalletBalances';
 import { Loader2 } from 'lucide-react';
-import { cn, formatRupiah } from '@/lib/utils';
+import { cn, formatDate, formatRupiah } from '@/lib/utils';
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -38,10 +38,15 @@ export function DashboardPage() {
           </p>
           <div className="mt-4 flex items-end justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-surface-500">Sisa uang bulan ini</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-surface-500">Sisa uang periode ini</p>
               <p className={cn('mt-1 text-3xl font-bold tabular-nums', summary.sisaBudget < 0 ? 'text-danger-400' : 'text-surface-100')}>
                 {formatRupiah(summary.sisaBudget)}
               </p>
+              {summary.periodPayDay > 1 && (
+                <p className="mt-1 text-xs text-surface-500">
+                  {formatDate(summary.periodStartDate)} - {formatDate(summary.periodEndDate)}
+                </p>
+              )}
             </div>
             <div
               className={cn(
@@ -62,7 +67,7 @@ export function DashboardPage() {
               </p>
             </div>
             <div className="rounded-xl bg-surface-800/40 px-3 py-2">
-              <p className="text-xs text-surface-500">Sisa hari bulan ini</p>
+              <p className="text-xs text-surface-500">Sisa hari periode ini</p>
               <p className="text-sm font-semibold text-surface-100">{summary.daysRemaining} hari</p>
             </div>
           </div>

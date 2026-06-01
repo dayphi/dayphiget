@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import { getCurrentMonth } from '@/lib/utils';
+import {
+  getBudgetPeriod,
+  getCurrentBudgetMonth,
+  getPrimaryPayDay,
+  getRemainingDaysInPeriod,
+  isRecurringIncomeTransaction,
+} from '@/lib/utils';
 import type {
   Transaction,
   Category,
@@ -84,7 +90,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   walletBalances: [],
   budgetItems: [],
   hutangList: [],
-  currentMonth: getCurrentMonth(),
+  currentMonth: getCurrentBudgetMonth(),
   summary: null,
   isLoading: true,
 
@@ -95,9 +101,11 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const isFirstLoad = get().transactions.length === 0 && get().categories.length === 0;
     if (isFirstLoad) set({ isLoading: true });
 
+    await get().fetchIncomeSources(userId);
+    set({ currentMonth: getCurrentBudgetMonth(getPrimaryPayDay(get().incomeSources)) });
+
     await Promise.all([
       get().fetchCategories(userId),
-      get().fetchIncomeSources(userId),
       get().fetchPaymentMethods(userId),
       get().fetchWalletTransfers(userId),
       get().fetchTransactions(userId),
@@ -110,10 +118,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
 
   fetchTransactions: async (userId) => {
     const month = get().currentMonth;
-    const startDate = `${month}-01`;
-    // Last day of month using local date (avoid UTC shift)
-    const d = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0);
-    const endDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const { startDate, endDate } = getBudgetPeriod(month, getPrimaryPayDay(get().incomeSources));
 
     const { data } = await supabase
       .from('transactions')
@@ -157,9 +162,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
 
   fetchWalletTransfers: async (userId) => {
     const month = get().currentMonth;
-    const startDate = `${month}-01`;
-    const d = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0);
-    const endDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const { startDate, endDate } = getBudgetPeriod(month, getPrimaryPayDay(get().incomeSources));
 
     const { data } = await supabase
       .from('wallet_transfers')
@@ -246,11 +249,12 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   },
 
   computeSummary: () => {
-    const { transactions, incomeSources, hutangList, paymentMethods, walletTransfers, budgetItems } = get();
+    const { transactions, incomeSources, hutangList, paymentMethods, walletTransfers, budgetItems, currentMonth } = get();
+    const period = getBudgetPeriod(currentMonth, getPrimaryPayDay(incomeSources));
 
     const recurringIncome = incomeSources.reduce((sum, s) => sum + Number(s.amount), 0);
     const txIncome = transactions
-      .filter((t) => t.type === 'income')
+      .filter((t) => t.type === 'income' && !isRecurringIncomeTransaction(t.tags))
       .reduce((sum, t) => sum + Number(t.amount), 0);
     const totalIncome = recurringIncome + txIncome;
     const expenses = transactions.filter((t) => t.type === 'expense');
@@ -262,8 +266,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const remainingHutang = Math.max(totalHutang - hutangPaid, 0);
 
     const now = new Date();
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysRemaining = Math.max(lastDay - now.getDate() + 1, 1); // include today
+    const daysRemaining = getRemainingDaysInPeriod(period.endDate, now);
 
     // Use local date string (not UTC)
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -338,6 +341,9 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
         dailyLimit,
         todaySpent,
         daysRemaining,
+        periodStartDate: period.startDate,
+        periodEndDate: period.endDate,
+        periodPayDay: period.payDay,
       },
       walletBalances,
     });
