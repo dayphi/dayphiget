@@ -28,6 +28,7 @@ interface BudgetState {
   incomeSources: IncomeSource[];
   paymentMethods: PaymentMethod[];
   walletTransfers: WalletTransfer[];
+  walletTransferHistory: WalletTransfer[];
   walletBalances: WalletBalance[];
   budgetItems: BudgetItem[];
   hutangList: Hutang[];
@@ -50,6 +51,7 @@ interface BudgetState {
   fetchIncomeSources: (userId: string) => Promise<void>;
   fetchPaymentMethods: (userId: string) => Promise<void>;
   fetchWalletTransfers: (userId: string) => Promise<void>;
+  fetchWalletTransferHistory: (userId: string) => Promise<void>;
   fetchBudgetItems: (userId: string) => Promise<void>;
   fetchHutang: (userId: string) => Promise<void>;
   computeSummary: () => void;
@@ -106,6 +108,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   incomeSources: [],
   paymentMethods: [],
   walletTransfers: [],
+  walletTransferHistory: [],
   walletBalances: [],
   budgetItems: [],
   hutangList: [],
@@ -129,7 +132,9 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       get().fetchCategories(userId),
       get().fetchPaymentMethods(userId),
       get().fetchWalletTransfers(userId),
+      get().fetchWalletTransferHistory(userId),
       get().fetchTransactions(userId),
+      get().fetchTransactionHistory(userId),
       get().fetchBudgetItems(userId),
       get().fetchHutang(userId),
     ]);
@@ -228,6 +233,31 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     if (data) set({ walletTransfers: data as WalletTransfer[] });
   },
 
+  fetchWalletTransferHistory: async (userId) => {
+    const pageSize = 1000;
+    let from = 0;
+    let allRows: WalletTransfer[] = [];
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('wallet_transfers')
+        .select('*, from_payment_method:payment_methods!wallet_transfers_from_payment_method_id_fkey(*), to_payment_method:payment_methods!wallet_transfers_to_payment_method_id_fkey(*)')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (error) throw new Error(error.message);
+      const rows = (data || []) as WalletTransfer[];
+      allRows = [...allRows, ...rows];
+
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+
+    set({ walletTransferHistory: allRows });
+  },
+
   fetchBudgetItems: async (userId) => {
     const month = get().currentMonth;
     const { data } = await supabase
@@ -236,7 +266,28 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       .eq('budget.user_id', userId)
       .eq('budget.month', month);
 
-    if (data) set({ budgetItems: data as BudgetItem[] });
+    if (data && data.length > 0) {
+      set({ budgetItems: data as BudgetItem[] });
+      return;
+    }
+
+    const [year, oneBasedMonth] = month.split('-').map(Number);
+    const fallbackMonth = year && oneBasedMonth
+      ? `${new Date(year, oneBasedMonth - 2, 1).getFullYear()}-${String(new Date(year, oneBasedMonth - 2, 1).getMonth() + 1).padStart(2, '0')}`
+      : null;
+
+    if (!fallbackMonth) {
+      set({ budgetItems: [] });
+      return;
+    }
+
+    const { data: fallbackData } = await supabase
+      .from('budget_items')
+      .select('*, category:categories(*), budget:budgets!inner(*)')
+      .eq('budget.user_id', userId)
+      .eq('budget.month', fallbackMonth);
+
+    set({ budgetItems: (fallbackData || []) as BudgetItem[] });
   },
 
   setBudgetItem: async (userId, categoryId, plannedAmount) => {
@@ -264,7 +315,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
 
     // 2. Upsert budget item
     const existing = get().budgetItems.find(
-      (bi) => bi.category_id === categoryId
+      (bi) => bi.category_id === categoryId && bi.budget?.month === month
     );
 
     if (existing) {
@@ -282,7 +333,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       const { data, error } = await supabase
         .from('budget_items')
         .insert({ budget_id: budget.id, category_id: categoryId, planned_amount: plannedAmount })
-        .select('*, category:categories(*)')
+        .select('*, category:categories(*), budget:budgets(*)')
         .single();
       if (error) throw new Error(error.message);
       if (data) set((s) => ({ budgetItems: [...s.budgetItems, data as BudgetItem] }));
@@ -301,8 +352,20 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   },
 
   computeSummary: () => {
-    const { transactions, incomeSources, hutangList, paymentMethods, walletTransfers, budgetItems, currentMonth } = get();
+    const {
+      transactions,
+      transactionHistory,
+      incomeSources,
+      hutangList,
+      paymentMethods,
+      walletTransfers,
+      walletTransferHistory,
+      budgetItems,
+      currentMonth,
+    } = get();
     const period = getBudgetPeriod(currentMonth, getPrimaryPayDay(incomeSources));
+    const walletTransactions = transactionHistory.length > 0 ? transactionHistory : transactions;
+    const allWalletTransfers = walletTransferHistory.length > 0 ? walletTransferHistory : walletTransfers;
 
     const recurringIncome = incomeSources.reduce((sum, s) => sum + Number(s.amount), 0);
     const txIncome = transactions
@@ -352,7 +415,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const status = sisaBudget < 0 ? 'deficit' : sisaPct < 15 ? 'warning' : 'healthy';
 
     // Pre-group transactions by wallet to avoid O(N*M) loop
-    const txByWallet = transactions.reduce<Record<string, { income: number; expense: number }>>((acc, tx) => {
+    const txByWallet = walletTransactions.reduce<Record<string, { income: number; expense: number }>>((acc, tx) => {
       const pmId = tx.payment_method_id;
       if (!pmId) return acc;
       if (!acc[pmId]) acc[pmId] = { income: 0, expense: 0 };
@@ -360,7 +423,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       return acc;
     }, {});
 
-    const transferByWallet = walletTransfers.reduce<Record<string, { in: number; out: number }>>((acc, tx) => {
+    const transferByWallet = allWalletTransfers.reduce<Record<string, { in: number; out: number }>>((acc, tx) => {
       if (!acc[tx.to_payment_method_id]) acc[tx.to_payment_method_id] = { in: 0, out: 0 };
       acc[tx.to_payment_method_id].in += Number(tx.amount);
 
@@ -526,7 +589,14 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       .single();
     if (error) throw new Error(error.message);
     if (data) {
-      set((s) => ({ walletTransfers: [data as WalletTransfer, ...s.walletTransfers] }));
+      const walletTransfer = data as WalletTransfer;
+      const period = getBudgetPeriod(get().currentMonth, getPrimaryPayDay(get().incomeSources));
+      const isCurrentPeriod = isDateInPeriod(walletTransfer.date, period.startDate, period.endDate);
+
+      set((s) => ({
+        walletTransferHistory: [walletTransfer, ...s.walletTransferHistory],
+        walletTransfers: isCurrentPeriod ? [walletTransfer, ...s.walletTransfers] : s.walletTransfers,
+      }));
       get().computeSummary();
     }
   },
@@ -540,8 +610,19 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       .single();
     if (error) throw new Error(error.message);
     if (data) {
+      const walletTransfer = data as WalletTransfer;
+      const period = getBudgetPeriod(get().currentMonth, getPrimaryPayDay(get().incomeSources));
+      const isCurrentPeriod = isDateInPeriod(walletTransfer.date, period.startDate, period.endDate);
+
       set((s) => ({
-        walletTransfers: s.walletTransfers.map((t) => t.id === id ? (data as WalletTransfer) : t),
+        walletTransferHistory: s.walletTransferHistory.map((t) => t.id === id ? walletTransfer : t),
+        walletTransfers: isCurrentPeriod
+          ? (
+            s.walletTransfers.some((t) => t.id === id)
+              ? s.walletTransfers.map((t) => t.id === id ? walletTransfer : t)
+              : [walletTransfer, ...s.walletTransfers]
+          )
+          : s.walletTransfers.filter((t) => t.id !== id),
       }));
       get().computeSummary();
     }
@@ -551,6 +632,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const { error } = await supabase.from('wallet_transfers').delete().eq('id', id);
     if (error) throw new Error(error.message);
     set((s) => ({
+      walletTransferHistory: s.walletTransferHistory.filter((t) => t.id !== id),
       walletTransfers: s.walletTransfers.filter((t) => t.id !== id),
     }));
     get().computeSummary();

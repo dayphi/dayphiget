@@ -105,6 +105,7 @@ export interface BudgetItem {
   planned_amount: number;
   // Joined
   category?: Category;
+  budget?: Budget;
 }
 
 export interface Hutang {

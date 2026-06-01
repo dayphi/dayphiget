@@ -54,7 +54,7 @@ export function WalletPage() {
           {formatRupiah(totalBalance)}
         </p>
         <p className="mt-2 text-xs text-surface-500">
-          Saldo dihitung dari saldo awal, pemasukan, pengeluaran, dan transfer antar wallet periode ini.
+          Saldo dihitung kumulatif dari saldo awal, semua pemasukan, pengeluaran, dan transfer antar wallet.
         </p>
       </section>
 
